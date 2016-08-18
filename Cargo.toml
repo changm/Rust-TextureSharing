@@ -1,0 +1,4 @@
+[package]
+name = "cross_process_texture_sharing"
+version = "0.0.1"
+authors = [ "Mason Chang <mchang@mozilla.com>" ]
