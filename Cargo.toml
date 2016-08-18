@@ -8,3 +8,6 @@ authors = [ "Mason Chang <mchang@mozilla.com>" ]
 gl = "*"
 glutin = "0.6.1"
 libc = "*"
+
+# For Image decoding
+image = "*"

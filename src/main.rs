@@ -1,8 +1,21 @@
 extern crate gl;
 extern crate glutin;
 extern crate libc;
+extern crate image;
+
+use std::fs::File;
+use std::path::Path;
+
+// Returns the raw pixel data
+fn get_image_data() -> Vec<u8> {
+    let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
+    let img = image::open(&Path::new(image_path)).unwrap();
+    return img.raw_pixels();
+}
 
 fn main() {
+    get_image_data();
+
     let window = glutin::Window::new().unwrap();
 
     unsafe {
