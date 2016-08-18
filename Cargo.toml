@@ -2,3 +2,9 @@
 name = "cross_process_texture_sharing"
 version = "0.0.1"
 authors = [ "Mason Chang <mchang@mozilla.com>" ]
+
+[dependencies]
+# Required for glutin to show a window
+gl = "*"
+glutin = "0.6.1"
+libc = "*"
