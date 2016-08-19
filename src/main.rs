@@ -5,6 +5,7 @@ extern crate gleam;
 
 use std::fs::File;
 use std::path::Path;
+use std::io::Read;
 
 use gleam::gl;
 
@@ -23,12 +24,48 @@ fn upload_texture(texture_data: Vec<u8>) {
     }
 }
 
+pub fn compile_shader(shader_path: &String,
+                      shader_type: gl::GLenum) -> Option<gl::GLuint> {
+    let mut shader_file = File::open(&Path::new(shader_path)).unwrap();
+    let mut shader_string= String::new();
+    shader_file.read_to_string(&mut shader_string).unwrap();
+
+    // Odd that gleam::gl requires us to compile shaders as bytes and not string
+    /*
+    let mut source = Vec::new();
+    source.extend_from_slice(vertex_string.as_bytes());
+    let id = gl::create_shader(shader_type);
+
+    let mut fragment_file = File::open(&Path::new(fragment_shader)).unwrap();
+    let mut fragment_string = String::new();
+    fragment_file.read_to_string(&mut vertex_string).unwrap();
+    */
+
+
+    let id = gl::create_shader(shader_type);
+    let mut source = Vec::new();
+    source.extend_from_slice(shader_string.as_bytes());
+    gl::shader_source(id, &[&source[..]]);
+    gl::compile_shader(id);
+    if gl::get_shader_iv(id, gl::COMPILE_STATUS) == (0 as gl::GLint) {
+        println!("Failed to compile shader: {}", gl::get_shader_info_log(id));
+        panic!("-- Shader compile failed - exiting --");
+        None
+    } else {
+        println!("Compiled shader {}", gl::get_shader_info_log(id));
+        Some(id)
+    }
+}
+
 fn upload_triangle() {
     let vertices: [f32; 6] = [
         0.0, 0.5,   // V1
         0.5, -0.5,  // V2
         -0.5, -0.5  // V3
     ];
+
+    let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
+    let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
 
     unsafe {
         let mut triangle_vbo: gl::GLuint = 0;
@@ -40,6 +77,9 @@ fn upload_triangle() {
 
         // Always want a triangle
         gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
+
+        let vertex_shader_id = compile_shader(&vertex_shader, gl::VERTEX_SHADER);
+
     }
 }
 
