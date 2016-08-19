@@ -5,8 +5,8 @@ authors = [ "Mason Chang <mchang@mozilla.com>" ]
 
 [dependencies]
 # Required for glutin to show a window
-gl = "*"
 glutin = "0.6.1"
+gleam = "*"
 libc = "*"
 
 # For Image decoding
