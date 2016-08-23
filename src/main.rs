@@ -67,20 +67,43 @@ fn upload_triangle() {
     let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
     let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
 
-    unsafe {
-        let mut triangle_vbo: gl::GLuint = 0;
-        gl::GenBuffers(1, &mut triangle_vbo);
-        println!("Generated vertex id : {:?}", triangle_vbo);
+    let vaos = gl::gen_vertex_arrays(1);
+    let vao = vaos[0];
+    gl::bind_vertex_array(vao);
 
-        // Now let's upload the data
-        gl::BindBuffer(gl::ARRAY_BUFFER, triangle_vbo);
+    let vbos = gl::gen_buffers(1);
+    let triangle_vbo = vbos[0];
+    println!("Generated vertex id : {:?}", triangle_vbo);
 
-        // Always want a triangle
-        gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
+    // Now let's upload the data
+    gl::bind_buffer(gl::ARRAY_BUFFER, triangle_vbo);
 
-        let vertex_shader_id = compile_shader(&vertex_shader, gl::VERTEX_SHADER);
+    // Always want a triangle
+    gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
 
-    }
+    // Compile our shaders
+    let vertex_shader_id = compile_shader(&vertex_shader, gl::VERTEX_SHADER);
+    let fragment_shader_id = compile_shader(&fragment_shader, gl::FRAGMENT_SHADER);
+
+    // Create our program.
+    let pid = gl::create_program();
+    gl::attach_shader(pid, vertex_shader_id.unwrap());
+    gl::attach_shader(pid, fragment_shader_id.unwrap());
+
+    // Bind our output, oColor is outColor defined in the fragment shader
+    //gl::bind_frag_data_location(pid, 0, "oColor");
+
+    // Use the program
+    gl::link_program(pid);
+    gl::use_program(pid);
+
+    // Now make the link between vertex data and attributes
+    let pos_attribute = gl::get_attrib_location(pid, "position");
+    gl::enable_vertex_attrib_array(pos_attribute as u32);
+    gl::vertex_attrib_pointer(pos_attribute as u32, 2, gl::FLOAT, false, 0, 0);
+
+    // What is a VAO for again, it just remembers everything we did here?
+    gl::draw_arrays(gl::TRIANGLES, 0, 3);
 }
 
 fn main() {
@@ -90,15 +113,18 @@ fn main() {
     unsafe {
         window.make_current();
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-        gl::ClearColor(0.0, 1.0, 0.0, 1.0);
+        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
     }
 
     // Have to do this after we create the window which loads all the symbols.
-    upload_texture(texture_data);
-    upload_triangle();
+    //upload_texture(texture_data);
 
+    upload_triangle();
+    
     for event in window.wait_events() {
-        unsafe { gl::Clear(gl::COLOR_BUFFER_BIT) };
+        //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT) };
+        unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); };
+        gl::draw_arrays(gl::TRIANGLES, 0, 3);
         window.swap_buffers();
 
         match event {
