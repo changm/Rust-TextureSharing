@@ -64,13 +64,10 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
                      Some(data));
 
     // Upload vertex data
+    println!("Data is: {:?}", data);
     let vbos = gl::gen_buffers(1);
     let image_vbo = vbos[0];
-
-    // Now let's upload the data
     gl::bind_buffer(gl::ARRAY_BUFFER, image_vbo);
-
-    // Always want a triangle
     gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
 
     // Upload our index data
