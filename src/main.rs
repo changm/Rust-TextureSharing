@@ -24,7 +24,12 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
         -1.0, 1.0,      0.0, 1.0, // Top Left
         1.0, 1.0,       1.0, 1.0,    // Top right
         1.0, -1.0,      1.0, 0.0,  // bottom right
+    ];
 
+    let indices : [u32 ; 6] = 
+    [
+        0, 1, 2, // Actually have to connect the whole screen
+        2, 3, 0,
     ];
 
     let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
@@ -35,9 +40,14 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
     let vao = vaos[0];
     gl::bind_vertex_array(vao);
 
+    // Buffers for our textures
     let texture_buffers = gl::gen_textures(1);
     let texture_buffer = texture_buffers[0];
     gl::bind_texture(gl::TEXTURE_2D, texture_buffer);
+
+    // Buffers for our index array
+    let ibo_buffers = gl::gen_buffers(1);
+    let ibo_buffer = ibo_buffers[0];
 
     // Use linear filtering to scale down and up
     gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
@@ -53,14 +63,19 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
                      gl::UNSIGNED_BYTE, 
                      Some(data));
 
+    // Upload vertex data
     let vbos = gl::gen_buffers(1);
-    let triangle_vbo = vbos[0];
+    let image_vbo = vbos[0];
 
     // Now let's upload the data
-    gl::bind_buffer(gl::ARRAY_BUFFER, triangle_vbo);
+    gl::bind_buffer(gl::ARRAY_BUFFER, image_vbo);
 
     // Always want a triangle
     gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
+
+    // Upload our index data
+    gl::bind_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo_buffer);
+    gl::buffer_data(gl::ELEMENT_ARRAY_BUFFER, &indices, gl::STATIC_DRAW);
 
     // Compile our shaders
     let vertex_shader_id = compile_shader(&vertex_shader, gl::VERTEX_SHADER);
@@ -77,7 +92,6 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
     // Use the program
     gl::link_program(pid);
     gl::use_program(pid);
-
     
     // Now make the link between vertex data and attributes
     let vertex_count = 2;
@@ -97,7 +111,8 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
                               (f32_size * 2) as u32);
 
     // What is a VAO for again, it just remembers everything we did here?
-    gl::draw_arrays(gl::TRIANGLES, 0, 6);
+    //gl::draw_arrays(gl::TRIANGLES, 0, 6);
+    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 }
 
 pub fn compile_shader(shader_path: &String,
@@ -205,7 +220,9 @@ fn main() {
     for event in window.wait_events() {
         //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT) };
         unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); };
-        gl::draw_arrays(gl::TRIANGLES, 0, 3);
+        // Draw a rectangle instead.
+        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+
         window.swap_buffers();
 
         match event {
