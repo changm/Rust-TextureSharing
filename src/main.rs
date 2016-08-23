@@ -6,6 +6,7 @@ extern crate gleam;
 use std::fs::File;
 use std::path::Path;
 use std::io::Read;
+use std::mem;
 
 use gleam::gl;
 
@@ -16,12 +17,87 @@ fn get_image_data() -> Vec<u8> {
     return img.raw_pixels();
 }
 
-fn upload_texture(texture_data: Vec<u8>) {
-    unsafe {
-        let mut texture_id: gl::GLuint = 0;
-        gl::GenBuffers(1, &mut texture_id);
-        println!("Generated texture id is: {:?}", texture_id);
-    }
+fn upload_texture(width: u32, height: u32, data: &[u8]) {
+    let vertices: [f32; 16] = [
+        // vertices     // Texture coordinates
+        -1.0, -1.0,     0.0, 0.0,  // Bottom left
+        -1.0, 1.0,      0.0, 1.0, // Top Left
+        1.0, 1.0,       1.0, 1.0,    // Top right
+        1.0, -1.0,      1.0, 0.0,  // bottom right
+
+    ];
+
+    let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
+    let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
+
+    // VAOs have to be genreated fairly early then.
+    let vaos = gl::gen_vertex_arrays(1);
+    let vao = vaos[0];
+    gl::bind_vertex_array(vao);
+
+    let texture_buffers = gl::gen_textures(1);
+    let texture_buffer = texture_buffers[0];
+    gl::bind_texture(gl::TEXTURE_2D, texture_buffer);
+
+    // Use linear filtering to scale down and up
+    gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
+    gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);
+
+    gl::tex_image_2d(gl::TEXTURE_2D,
+                     0,
+                     gl::RGBA as gl::GLint,
+                     width as gl::GLint,
+                     height as gl::GLint,
+                     0,
+                     gl::RGBA_INTEGER, 
+                     gl::UNSIGNED_BYTE, 
+                     Some(data));
+
+    let vbos = gl::gen_buffers(1);
+    let triangle_vbo = vbos[0];
+
+    // Now let's upload the data
+    gl::bind_buffer(gl::ARRAY_BUFFER, triangle_vbo);
+
+    // Always want a triangle
+    gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
+
+    // Compile our shaders
+    let vertex_shader_id = compile_shader(&vertex_shader, gl::VERTEX_SHADER);
+    let fragment_shader_id = compile_shader(&fragment_shader, gl::FRAGMENT_SHADER);
+
+    // Create our program.
+    let pid = gl::create_program();
+    gl::attach_shader(pid, vertex_shader_id.unwrap());
+    gl::attach_shader(pid, fragment_shader_id.unwrap());
+
+    // Bind our output, oColor is outColor defined in the fragment shader
+    //gl::bind_frag_data_location(pid, 0, "oColor");
+
+    // Use the program
+    gl::link_program(pid);
+    gl::use_program(pid);
+
+    
+    // Now make the link between vertex data and attributes
+    let vertex_count = 2;
+    let vertex_stride = (mem::size_of::<f32>() * 4) as i32;
+    let f32_size = mem::size_of::<f32>();
+    let pos_attribute = gl::get_attrib_location(pid, "position");
+    gl::enable_vertex_attrib_array(pos_attribute as u32);
+    gl::vertex_attrib_pointer(pos_attribute as u32, vertex_count, gl::FLOAT, false, vertex_stride, 0);
+
+    let tex_attribute = gl::get_attrib_location(pid, "texture_coord");
+    gl::enable_vertex_attrib_array(tex_attribute as u32);
+    gl::vertex_attrib_pointer(tex_attribute as u32,
+                              vertex_count,
+                              gl::FLOAT,
+                              false,
+                              vertex_stride,
+                              (f32_size * 2) as u32);
+
+    // What is a VAO for again, it just remembers everything we did here?
+    gl::draw_arrays(gl::TRIANGLES, 0, 6);
 }
 
 pub fn compile_shader(shader_path: &String,
@@ -29,18 +105,6 @@ pub fn compile_shader(shader_path: &String,
     let mut shader_file = File::open(&Path::new(shader_path)).unwrap();
     let mut shader_string= String::new();
     shader_file.read_to_string(&mut shader_string).unwrap();
-
-    // Odd that gleam::gl requires us to compile shaders as bytes and not string
-    /*
-    let mut source = Vec::new();
-    source.extend_from_slice(vertex_string.as_bytes());
-    let id = gl::create_shader(shader_type);
-
-    let mut fragment_file = File::open(&Path::new(fragment_shader)).unwrap();
-    let mut fragment_string = String::new();
-    fragment_file.read_to_string(&mut vertex_string).unwrap();
-    */
-
 
     let id = gl::create_shader(shader_type);
     let mut source = Vec::new();
@@ -58,6 +122,15 @@ pub fn compile_shader(shader_path: &String,
 }
 
 fn upload_triangle() {
+    let vertices: [f32; 16] = [
+        // vertices     // Texture coordinates
+        -1.0, -1.0,     0.0, 0.0,  // Bottom left
+        -1.0, 1.0,      0.0, 1.0, // Top Left
+        1.0, 1.0,       1.0, 1.0,    // Top right
+        1.0, -1.0,      1.0, 0.0,  // bottom right
+
+    ];
+
     let vertices: [f32; 6] = [
         0.0, 0.5,   // V1
         0.5, -0.5,  // V2
@@ -67,6 +140,7 @@ fn upload_triangle() {
     let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
     let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
 
+    // VAOs have to be genreated fairly early then.
     let vaos = gl::gen_vertex_arrays(1);
     let vao = vaos[0];
     gl::bind_vertex_array(vao);
@@ -107,7 +181,14 @@ fn upload_triangle() {
 }
 
 fn main() {
-    let texture_data = get_image_data();
+    // let's upload the image
+    let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
+    let mut img = image::open(&Path::new(image_path)).unwrap();
+
+    let rgba_image = img.as_mut_rgba8().unwrap();
+    let width = rgba_image.width();
+    let height = rgba_image.height();
+    let data = rgba_image.to_vec();
 
     let window = glutin::Window::new().unwrap();
     unsafe {
@@ -117,10 +198,10 @@ fn main() {
     }
 
     // Have to do this after we create the window which loads all the symbols.
-    //upload_texture(texture_data);
+    upload_texture(width, height, data.as_slice());
 
-    upload_triangle();
-    
+    //upload_triangle();
+
     for event in window.wait_events() {
         //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT) };
         unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); };
