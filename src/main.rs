@@ -39,15 +39,15 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
     let vaos = gl::gen_vertex_arrays(1);
     let vao = vaos[0];
     gl::bind_vertex_array(vao);
+    
+    // Buffers for our index array
+    let ibo_buffers = gl::gen_buffers(1);
+    let ibo_buffer = ibo_buffers[0];
 
     // Buffers for our textures
     let texture_buffers = gl::gen_textures(1);
     let texture_buffer = texture_buffers[0];
     gl::bind_texture(gl::TEXTURE_2D, texture_buffer);
-
-    // Buffers for our index array
-    let ibo_buffers = gl::gen_buffers(1);
-    let ibo_buffer = ibo_buffers[0];
 
     // Use linear filtering to scale down and up
     gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
@@ -59,12 +59,12 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
                      width as gl::GLint,
                      height as gl::GLint,
                      0,
-                     gl::RGBA_INTEGER, 
+                     gl::RGBA, 
                      gl::UNSIGNED_BYTE, 
                      Some(data));
 
     // Upload vertex data
-    println!("Data is: {:?}", data);
+    //println!("Data is: {:?}", data);
     let vbos = gl::gen_buffers(1);
     let image_vbo = vbos[0];
     gl::bind_buffer(gl::ARRAY_BUFFER, image_vbo);
