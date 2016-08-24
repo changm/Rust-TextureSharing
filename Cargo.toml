@@ -11,3 +11,6 @@ libc = "*"
 
 # For Image decoding
 image = "*"
+
+# For better libc things
+nix = "0.6.0"

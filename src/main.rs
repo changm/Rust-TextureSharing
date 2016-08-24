@@ -2,13 +2,15 @@ extern crate glutin;
 extern crate libc;
 extern crate image;
 extern crate gleam;
+extern crate nix;
 
 use std::fs::File;
 use std::path::Path;
 use std::io::Read;
 use std::mem;
-
 use gleam::gl;
+use nix::sys::signal::*;
+use nix::unistd::*;
 
 // Returns the raw pixel data
 fn get_image_data() -> Vec<u8> {
@@ -27,7 +29,7 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
         1.0, -1.0,      1.0, 1.0,  // bottom right
     ];
 
-    let indices : [u32 ; 6] = 
+    let indices : [u32 ; 6] =
     [
         0, 1, 2, // Actually have to connect the whole screen
         2, 3, 0,
@@ -40,7 +42,7 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
     let vaos = gl::gen_vertex_arrays(1);
     let vao = vaos[0];
     gl::bind_vertex_array(vao);
-    
+
     // Buffers for our index array
     let ibo_buffers = gl::gen_buffers(1);
     let ibo_buffer = ibo_buffers[0];
@@ -64,8 +66,8 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
                      width as gl::GLint,
                      height as gl::GLint,
                      0,
-                     gl::RGBA, 
-                     gl::UNSIGNED_BYTE, 
+                     gl::RGBA,
+                     gl::UNSIGNED_BYTE,
                      Some(data));
 
     // Upload vertex data
@@ -93,7 +95,7 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
     // Use the program
     gl::link_program(pid);
     gl::use_program(pid);
-    
+
     // Now make the link between vertex data and attributes
     let vertex_count = 2;
     let vertex_stride = (mem::size_of::<f32>() * 4) as i32;
@@ -188,6 +190,19 @@ fn upload_triangle() {
 }
 
 fn main() {
+    match fork().expect("fork failed") {
+        ForkResult::Parent{child} => {
+            sleep(5);
+            println!("Parent alive, child is: {:?}", child);
+            kill(child, SIGKILL).expect("Could not kill child");
+        }
+        ForkResult::Child => {
+            println!("Child forked");
+            loop {};
+        }
+    }
+
+    /*
     // let's upload the image
     let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
     let mut img = image::open(&Path::new(image_path)).unwrap();
@@ -223,4 +238,5 @@ fn main() {
             _ => ()
         }
     }
+    */
 }
