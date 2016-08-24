@@ -19,11 +19,12 @@ fn get_image_data() -> Vec<u8> {
 
 fn upload_texture(width: u32, height: u32, data: &[u8]) {
     let vertices: [f32; 16] = [
-        // vertices     // Texture coordinates
-        -1.0, -1.0,     0.0, 0.0,  // Bottom left
-        -1.0, 1.0,      0.0, 1.0, // Top Left
-        1.0, 1.0,       1.0, 1.0,    // Top right
-        1.0, -1.0,      1.0, 0.0,  // bottom right
+        // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
+                        // So we flip our texture coordinates here instead.
+        -1.0, -1.0,     0.0, 1.0,  // Bottom left
+        -1.0, 1.0,      0.0, 0.0, // Top Left
+        1.0, 1.0,       1.0, 0.0,    // Top right
+        1.0, -1.0,      1.0, 1.0,  // bottom right
     ];
 
     let indices : [u32 ; 6] = 
@@ -53,6 +54,10 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
     gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
     gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);
 
+    // Clamp the image to border
+    gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
+    gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
+
     gl::tex_image_2d(gl::TEXTURE_2D,
                      0,
                      gl::RGBA as gl::GLint,
@@ -64,7 +69,6 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
                      Some(data));
 
     // Upload vertex data
-    //println!("Data is: {:?}", data);
     let vbos = gl::gen_buffers(1);
     let image_vbo = vbos[0];
     gl::bind_buffer(gl::ARRAY_BUFFER, image_vbo);
@@ -134,15 +138,6 @@ pub fn compile_shader(shader_path: &String,
 }
 
 fn upload_triangle() {
-    let vertices: [f32; 16] = [
-        // vertices     // Texture coordinates
-        -1.0, -1.0,     0.0, 0.0,  // Bottom left
-        -1.0, 1.0,      0.0, 1.0, // Top Left
-        1.0, 1.0,       1.0, 1.0,    // Top right
-        1.0, -1.0,      1.0, 0.0,  // bottom right
-
-    ];
-
     let vertices: [f32; 6] = [
         0.0, 0.5,   // V1
         0.5, -0.5,  // V2
@@ -206,7 +201,7 @@ fn main() {
     unsafe {
         window.make_current();
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+        gl::ClearColor(1.0, 1.0, 1.0, 1.0);
     }
 
     // Have to do this after we create the window which loads all the symbols.
