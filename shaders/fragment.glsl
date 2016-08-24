@@ -6,8 +6,11 @@ uniform sampler2D tex;
 
 void main()
 {
-  //oColor = vec4(Texcoord.y, 0.0, 0.0, 1.0);
-  oColor = texture(tex, Texcoord) * vec4(1.0, 1.0, 1.0, 1.0);
-  //oColor = texture(tex, Texcoord) * vec4(1.0, 1.0, 1.0, 1.0);
-  //oColor = vec4(1.0, 1.0, 0, 0);
+  vec4 white = vec4(1.0, 1.0, 1.0, 1.0);
+  vec4 texture_sample = texture(tex, Texcoord);
+
+  //oColor = texture_sample;
+  // Blend with a white background because the png sometimes has no alpha
+  // and in those cases need white.
+  oColor = mix(white, texture_sample, texture_sample.w);
 }

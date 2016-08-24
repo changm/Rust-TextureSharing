@@ -196,6 +196,7 @@ fn main() {
     let width = rgba_image.width();
     let height = rgba_image.height();
     let data = rgba_image.to_vec();
+    //println!("Data is: {:?}", data);
 
     let window = glutin::Window::new().unwrap();
     unsafe {
