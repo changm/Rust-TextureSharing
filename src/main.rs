@@ -130,10 +130,17 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
     //gl::draw_arrays(gl::TRIANGLES, 0, 6);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 
-
     // Lets just copy teh blit
     gl::bind_framebuffer(gl::READ_FRAMEBUFFER, fbo);
     gl::bind_framebuffer(gl::DRAW_FRAMEBUFFER, 0);
+
+/*
+    unsafe {
+            gl::BlitFramebuffer(0, 0, width as gl::GLint, height as gl::GLint,
+                                0, 0, width as gl::GLint, height as gl::GLint,
+                                gl::COLOR_BUFFER_BIT, gl::NEAREST);
+    }
+    */
 
 
     // Now let's draw the FBO into the normal backbuffer?
@@ -205,15 +212,25 @@ fn main() {
 
     for event in window.wait_events() {
         //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT) };
-        unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); };
+        //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); };
         // Draw a rectangle instead.
-        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+        //gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 
+        unsafe {
+            gl::BlitFramebuffer(0, 0, width as gl::GLint, height as gl::GLint,
+                                0, 0, width as gl::GLint, height as gl::GLint,
+                                gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT, gl::NEAREST);
+        }
+
+
+/*
         unsafe {
             gl::BlitFramebuffer(0, 0, width as gl::GLint, height as gl::GLint,
                                 0, 0, width as gl::GLint, height as gl::GLint,
                                 gl::COLOR_BUFFER_BIT, gl::NEAREST);
         }
+        */
+
         //unsafe { gl::DrawBuffer(gl::COLOR_ATTACHMENT0); }
         //draw_quad_to_screen(0);
 
