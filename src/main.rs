@@ -19,11 +19,63 @@ fn get_image_data() -> Vec<u8> {
     return img.raw_pixels();
 }
 
+pub struct Device {
+    m_fbo : gl::GLuint,
+    quad_vertex_shader : Option<gl::GLuint>,
+    quad_fragment_shader : Option<gl::GLuint>,
+    pid : gl::GLuint,
+}
+
+impl Device {
+    pub fn new() -> Device {
+        let mut device = Device { m_fbo: 0,
+                              quad_vertex_shader : Some(0),
+                              quad_fragment_shader : Some(0),
+                              pid : 0};
+
+        let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
+        let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
+
+        // Compile our shaders
+        device.quad_vertex_shader = compile_shader(&vertex_shader, gl::VERTEX_SHADER);
+        device.quad_fragment_shader = compile_shader(&fragment_shader, gl::FRAGMENT_SHADER);
+
+        // Create our program.
+        device.pid = gl::create_program();
+        gl::attach_shader(device.pid, device.quad_vertex_shader.unwrap());
+        gl::attach_shader(device.pid, device.quad_fragment_shader.unwrap());
+
+        // Use the program
+        gl::link_program(device.pid);
+        gl::use_program(device.pid);
+
+        return device;
+    }
+
+    pub fn get_program_id(&self) -> gl::GLuint {
+        return self.pid;
+    }
+}
+
 // Given the FBO, draw it to the screen
 fn draw_quad_to_screen(fbo_id : gl::GLuint) {
     gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
     gl::clear_color(1.0, 1.0, 0.0, 1.0);
 
+    let vertices: [f32; 16] = [
+        // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
+                        // So we flip our texture coordinates here instead.
+        -1.0, -1.0,     0.0, 1.0,  // Bottom left
+        -1.0, 1.0,      0.0, 0.0, // Top Left
+        1.0, 1.0,       1.0, 0.0,    // Top right
+        1.0, -1.0,      1.0, 1.0,  // bottom right
+    ];
+
+    let indices : [u32 ; 6] =
+    [
+        0, 1, 2, // Actually have to connect the whole screen
+        2, 3, 0,
+    ];
 }
 
 // Instead of drawing this to the back buffer direclty, let's draw it to an FBO
@@ -43,10 +95,10 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
         2, 3, 0,
     ];
 
-    let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
-    let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
+    let mut device = Device::new();
+    let pid = device.get_program_id();
 
-    // VAOs have to be genreated fairly early then.
+        // VAOs have to be genreated fairly early then.
     let vaos = gl::gen_vertex_arrays(1);
     let vao = vaos[0];
     gl::bind_vertex_array(vao);
@@ -92,22 +144,6 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
     // Upload our index data
     gl::bind_buffer(gl::ELEMENT_ARRAY_BUFFER, ibo_buffer);
     gl::buffer_data(gl::ELEMENT_ARRAY_BUFFER, &indices, gl::STATIC_DRAW);
-
-    // Compile our shaders
-    let vertex_shader_id = compile_shader(&vertex_shader, gl::VERTEX_SHADER);
-    let fragment_shader_id = compile_shader(&fragment_shader, gl::FRAGMENT_SHADER);
-
-    // Create our program.
-    let pid = gl::create_program();
-    gl::attach_shader(pid, vertex_shader_id.unwrap());
-    gl::attach_shader(pid, fragment_shader_id.unwrap());
-
-    // Bind our output, oColor is outColor defined in the fragment shader
-    //gl::bind_frag_data_location(pid, 0, "oColor");
-
-    // Use the program
-    gl::link_program(pid);
-    gl::use_program(pid);
 
     // Now make the link between vertex data and attributes
     let vertex_count = 2;
