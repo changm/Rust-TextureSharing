@@ -217,9 +217,10 @@ fn main() {
         //gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 
         unsafe {
+            // Hmm need to have the depth buffer bit?
             gl::BlitFramebuffer(0, 0, width as gl::GLint, height as gl::GLint,
                                 0, 0, width as gl::GLint, height as gl::GLint,
-                                gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT, gl::NEAREST);
+                                gl::COLOR_BUFFER_BIT, gl::NEAREST);
         }
 
 
