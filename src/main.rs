@@ -60,6 +60,14 @@ impl Device {
         return device;
     }
 
+    pub fn begin_frame(&self) {
+        gl::bind_framebuffer(gl::FRAMEBUFFER, self.m_fbo);
+    }
+
+    pub fn end_frame(&self) {
+        gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
+    }
+
     pub fn setup_vao(&mut self) {
         let vertices: [f32; 16] =
         [
@@ -85,7 +93,7 @@ impl Device {
         // generate our FBO
         let fbos = gl::gen_framebuffers(1);
         self.m_fbo = fbos[0];
-        gl::bind_framebuffer(gl::FRAMEBUFFER, self.m_fbo);
+        //gl::bind_framebuffer(gl::FRAMEBUFFER, self.m_fbo);
 
         // Buffers for our index array
         let ibo_buffers = gl::gen_buffers(1);
@@ -146,7 +154,7 @@ fn draw_quad_to_screen(fbo_id : gl::GLuint) {
 }
 
 // Instead of drawing this to the back buffer direclty, let's draw it to an FBO
-fn upload_texture(width: u32, height: u32, data: &[u8]) {
+fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) {
     let vertices: [f32; 16] = [
         // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
                         // So we flip our texture coordinates here instead.
@@ -162,10 +170,8 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
         2, 3, 0,
     ];
 
-    let mut device = Device::new();
-    device.setup_vao();
-
     // Buffers for our textures
+    device.begin_frame();
     let texture_buffers = gl::gen_textures(1);
     let texture_buffer = texture_buffers[0];
     gl::bind_texture(gl::TEXTURE_2D, texture_buffer);
@@ -188,30 +194,8 @@ fn upload_texture(width: u32, height: u32, data: &[u8]) {
                      gl::UNSIGNED_BYTE,
                      Some(data));
 
-        // What is a VAO for again, it just remembers everything we did here?
-    //gl::draw_arrays(gl::TRIANGLES, 0, 6);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
-
-    // Lets just copy teh blit
-    gl::bind_framebuffer(gl::READ_FRAMEBUFFER, device.m_fbo);
-    gl::bind_framebuffer(gl::DRAW_FRAMEBUFFER, 0);
-
-/*
-    unsafe {
-            gl::BlitFramebuffer(0, 0, width as gl::GLint, height as gl::GLint,
-                                0, 0, width as gl::GLint, height as gl::GLint,
-                                gl::COLOR_BUFFER_BIT, gl::NEAREST);
-    }
-    */
-
-
-    // Now let's draw the FBO into the normal backbuffer?
-    /*
-    gl::framebuffer_texture_2d(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0,
-                               gl::TEXTURE_2D, texture_buffer, 0);
-    //let draw_buffers : [gl::GLenum; 1] = [gl::COLOR_ATTACHMENT0];
-    unsafe { gl::DrawBuffer(gl::COLOR_ATTACHMENT0); }
-    */
+    device.end_frame();
 }
 
 pub fn compile_shader(shader_path: &String,
@@ -267,10 +251,16 @@ fn main() {
         gl::ClearColor(1.0, 1.0, 1.0, 1.0);
     }
 
-    // Have to do this after we create the window which loads all the symbols.
-    upload_texture(width, height, data.as_slice());
+    let mut device = Device::new();
+    device.setup_vao();
 
-    //upload_triangle();
+    // Have to do this after we create the window which loads all the symbols.
+    upload_texture(width, height, data.as_slice(), &device);
+
+    // Lets just copy the blit
+    gl::bind_framebuffer(gl::READ_FRAMEBUFFER, device.m_fbo);
+    gl::bind_framebuffer(gl::DRAW_FRAMEBUFFER, 0);
+
 
     for event in window.wait_events() {
         //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT) };
