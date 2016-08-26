@@ -108,8 +108,8 @@ impl Device {
         self.m_fbo_tex_id = texture_ids[0];
         gl::bind_texture(gl::TEXTURE_2D, self.m_fbo_tex_id);
 
-        let width = 256;
-        let height = 256;
+        let width = 1024;
+        let height = 1024;
         // Use linear filtering to scale down and up
         gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
         gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);

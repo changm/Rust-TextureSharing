@@ -91,7 +91,11 @@ fn main() {
         window.make_current();
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
         gl::ClearColor(1.0, 1.0, 1.0, 1.0);
+        gl::viewport(0, 0, 1024, 1024);
     }
+
+    // Get the viewport size
+    let viewport_size = gl::get_integer_v(gl::MAX_VIEWPORT_DIMS);
 
     let mut device = Device::new();
     device.setup_vao();
