@@ -12,6 +12,9 @@ use gleam::gl;
 use nix::sys::signal::*;
 use nix::unistd::*;
 
+use device::{Device};
+mod device;
+
 // Returns the raw pixel data
 fn get_image_data() -> Vec<u8> {
     let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
@@ -19,6 +22,7 @@ fn get_image_data() -> Vec<u8> {
     return img.raw_pixels();
 }
 
+/*
 pub struct Device {
     m_fbo : gl::GLuint,
     quad_vertex_shader : Option<gl::GLuint>,
@@ -131,6 +135,7 @@ impl Device {
         return self.pid;
     }
 }
+*/
 
 // Given the FBO, draw it to the screen
 fn draw_quad_to_screen(fbo_id : gl::GLuint) {
@@ -198,27 +203,6 @@ fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) {
     device.end_frame();
 }
 
-pub fn compile_shader(shader_path: &String,
-                      shader_type: gl::GLenum) -> Option<gl::GLuint> {
-    let mut shader_file = File::open(&Path::new(shader_path)).unwrap();
-    let mut shader_string= String::new();
-    shader_file.read_to_string(&mut shader_string).unwrap();
-
-    let id = gl::create_shader(shader_type);
-    let mut source = Vec::new();
-    source.extend_from_slice(shader_string.as_bytes());
-    gl::shader_source(id, &[&source[..]]);
-    gl::compile_shader(id);
-    if gl::get_shader_iv(id, gl::COMPILE_STATUS) == (0 as gl::GLint) {
-        println!("Failed to compile shader: {}", gl::get_shader_info_log(id));
-        panic!("-- Shader compile failed - exiting --");
-        None
-    } else {
-        println!("Compiled shader {}", gl::get_shader_info_log(id));
-        Some(id)
-    }
-}
-
 fn create_processes() {
     match fork().expect("fork failed") {
         ForkResult::Parent{child} => {
@@ -263,9 +247,6 @@ fn main() {
 
 
     for event in window.wait_events() {
-        //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT) };
-        //unsafe { gl::Clear(gl::COLOR_BUFFER_BIT); };
-        // Draw a rectangle instead.
         //gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 
         unsafe {
@@ -274,18 +255,6 @@ fn main() {
                                 0, 0, width as gl::GLint, height as gl::GLint,
                                 gl::COLOR_BUFFER_BIT, gl::NEAREST);
         }
-
-
-/*
-        unsafe {
-            gl::BlitFramebuffer(0, 0, width as gl::GLint, height as gl::GLint,
-                                0, 0, width as gl::GLint, height as gl::GLint,
-                                gl::COLOR_BUFFER_BIT, gl::NEAREST);
-        }
-        */
-
-        //unsafe { gl::DrawBuffer(gl::COLOR_ATTACHMENT0); }
-        //draw_quad_to_screen(0);
 
         window.swap_buffers();
 
