@@ -97,28 +97,7 @@ impl Device {
         gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
     }
 
-    pub fn setup_vao(&mut self) {
-        let vertices: [f32; 16] =
-        [
-            // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
-            // So we flip our texture coordinates here instead.
-            -1.0, -1.0,     0.0, 1.0,  // Bottom left
-            -1.0, 1.0,      0.0, 0.0, // Top Left
-            1.0, 1.0,       1.0, 0.0,    // Top right
-            1.0, -1.0,      1.0, 1.0,  // bottom right
-        ];
-
-        let indices : [u32 ; 6] =
-        [
-            0, 1, 2, // Actually have to connect the whole screen
-            2, 3, 0,
-        ];
-
-        // VAOs have to be genreated fairly early then.
-        let vaos = gl::gen_vertex_arrays(1);
-        self.m_vao = vaos[0];
-        gl::bind_vertex_array(self.m_vao);
-
+    pub fn setup_fbo(&mut self) {
         // generate our FBO
         let fbos = gl::gen_framebuffers(1);
         self.m_fbo = fbos[0];
@@ -166,6 +145,31 @@ impl Device {
 
         // Go back to our old fbo
         gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
+    }
+
+    pub fn setup_vao(&mut self) {
+        let vertices: [f32; 16] =
+        [
+            // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
+            // So we flip our texture coordinates here instead.
+            -1.0, -1.0,     0.0, 1.0,  // Bottom left
+            -1.0, 1.0,      0.0, 0.0, // Top Left
+            1.0, 1.0,       1.0, 0.0,    // Top right
+            1.0, -1.0,      1.0, 1.0,  // bottom right
+        ];
+
+        let indices : [u32 ; 6] =
+        [
+            0, 1, 2, // Actually have to connect the whole screen
+            2, 3, 0,
+        ];
+
+        // VAOs have to be genreated fairly early then.
+        let vaos = gl::gen_vertex_arrays(1);
+        self.m_vao = vaos[0];
+        gl::bind_vertex_array(self.m_vao);
+
+        self.setup_fbo();
 
         // Buffers for our index array
         let ibo_buffers = gl::gen_buffers(1);

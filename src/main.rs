@@ -23,9 +23,9 @@ fn get_image_data() -> Vec<u8> {
 }
 
 // Given the FBO, draw it to the screen
-fn draw_quad_to_screen(device : &Device) {
+fn draw_quad_to_screen(texture_id : gl::GLuint) {
     gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
-    gl::bind_texture(gl::TEXTURE_2D, device.m_fbo_tex_id);
+    gl::bind_texture(gl::TEXTURE_2D, texture_id);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 }
 
@@ -33,7 +33,7 @@ fn draw_quad_to_screen(device : &Device) {
 fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) {
     println!("Uploading texture\n");
     // Buffers for our textures
-    //device.begin_frame();
+    device.begin_frame();
     let texture_buffers = gl::gen_textures(1);
     let texture_buffer = texture_buffers[0];
     gl::bind_texture(gl::TEXTURE_2D, texture_buffer);
@@ -57,8 +57,8 @@ fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) {
                      Some(data));
 
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
-    //gl::bind_texture(gl::TEXTURE_2D, 0);
-    //device.end_frame();
+    gl::flush();
+    device.end_frame();
 }
 
 fn create_processes() {
@@ -99,28 +99,9 @@ fn main() {
     // Have to do this after we create the window which loads all the symbols.
     upload_texture(width, height, data.as_slice(), &device);
 
-    //gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
-
     for event in window.wait_events() {
-        //gl::clear(gl::COLOR_BUFFER_BIT);
-        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
-        //draw_quad_to_screen(&device);
-
-        /*
-        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
-        // Lets just copy the blit
-        gl::bind_framebuffer(gl::READ_FRAMEBUFFER, device.m_fbo);
-        gl::bind_framebuffer(gl::DRAW_FRAMEBUFFER, 0);
-
-
-
-        unsafe {
-            // Hmm need to have the depth buffer bit?
-            gl::BlitFramebuffer(0, 0, width as gl::GLint, height as gl::GLint,
-                                0, 0, width as gl::GLint, height as gl::GLint,
-                                gl::COLOR_BUFFER_BIT, gl::NEAREST);
-        }
-        */
+        gl::clear(gl::COLOR_BUFFER_BIT);
+        draw_quad_to_screen(device.m_fbo_tex_id);
 
         window.swap_buffers();
 
