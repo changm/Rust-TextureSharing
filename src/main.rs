@@ -23,30 +23,17 @@ fn get_image_data() -> Vec<u8> {
 }
 
 // Given the FBO, draw it to the screen
-fn draw_quad_to_screen(fbo_id : gl::GLuint) {
+fn draw_quad_to_screen(device : &Device) {
     gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
-    gl::clear_color(1.0, 1.0, 0.0, 1.0);
-
-    let vertices: [f32; 16] = [
-        // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
-                        // So we flip our texture coordinates here instead.
-        -1.0, -1.0,     0.0, 1.0,  // Bottom left
-        -1.0, 1.0,      0.0, 0.0, // Top Left
-        1.0, 1.0,       1.0, 0.0,    // Top right
-        1.0, -1.0,      1.0, 1.0,  // bottom right
-    ];
-
-    let indices : [u32 ; 6] =
-    [
-        0, 1, 2, // Actually have to connect the whole screen
-        2, 3, 0,
-    ];
+    gl::bind_texture(gl::TEXTURE_2D, device.m_fbo_tex_id);
+    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 }
 
 // Instead of drawing this to the back buffer direclty, let's draw it to an FBO
 fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) {
+    println!("Uploading texture\n");
     // Buffers for our textures
-    device.begin_frame();
+    //device.begin_frame();
     let texture_buffers = gl::gen_textures(1);
     let texture_buffer = texture_buffers[0];
     gl::bind_texture(gl::TEXTURE_2D, texture_buffer);
@@ -70,7 +57,8 @@ fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) {
                      Some(data));
 
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
-    device.end_frame();
+    //gl::bind_texture(gl::TEXTURE_2D, 0);
+    //device.end_frame();
 }
 
 fn create_processes() {
@@ -111,13 +99,20 @@ fn main() {
     // Have to do this after we create the window which loads all the symbols.
     upload_texture(width, height, data.as_slice(), &device);
 
-    // Lets just copy the blit
-    gl::bind_framebuffer(gl::READ_FRAMEBUFFER, device.m_fbo);
-    gl::bind_framebuffer(gl::DRAW_FRAMEBUFFER, 0);
-
+    //gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
 
     for event in window.wait_events() {
-        //gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+        //gl::clear(gl::COLOR_BUFFER_BIT);
+        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+        //draw_quad_to_screen(&device);
+
+        /*
+        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+        // Lets just copy the blit
+        gl::bind_framebuffer(gl::READ_FRAMEBUFFER, device.m_fbo);
+        gl::bind_framebuffer(gl::DRAW_FRAMEBUFFER, 0);
+
+
 
         unsafe {
             // Hmm need to have the depth buffer bit?
@@ -125,6 +120,7 @@ fn main() {
                                 0, 0, width as gl::GLint, height as gl::GLint,
                                 gl::COLOR_BUFFER_BIT, gl::NEAREST);
         }
+        */
 
         window.swap_buffers();
 

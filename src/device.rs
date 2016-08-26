@@ -30,6 +30,7 @@ fn compile_shader(shader_path: &String,
 
 pub struct Device {
     pub m_fbo : gl::GLuint,
+    pub m_fbo_tex_id : gl::GLuint,
     quad_vertex_shader : Option<gl::GLuint>,
     quad_fragment_shader : Option<gl::GLuint>,
     pid : gl::GLuint,
@@ -40,15 +41,34 @@ pub struct Device {
     m_vbo : gl::GLuint,
 }
 
+impl Drop for Device {
+    fn drop (&mut self) {
+        let frame_buffers = [self.m_fbo];
+        gl::delete_framebuffers(&frame_buffers);
+
+        gl::delete_shader(self.quad_vertex_shader.unwrap());
+        gl::delete_shader(self.quad_fragment_shader.unwrap());
+        gl::delete_program(self.pid);
+
+        let vertex_arrays = [self.m_vao];
+        gl::delete_vertex_arrays(&vertex_arrays);
+
+        let vbo_ibo = [self.m_ibo, self.m_vbo];
+        gl::delete_buffers(&vbo_ibo);
+    }
+}
+
 impl Device {
     pub fn new() -> Device {
+        println!("Creating new device\n");
         let mut device = Device { m_fbo: 0,
-                              quad_vertex_shader : Some(0),
-                              quad_fragment_shader : Some(0),
-                              pid : 0,
-                              m_vao : 0,
-                              m_ibo : 0,
-                              m_vbo : 0};
+                                  m_fbo_tex_id : 0,
+                                  quad_vertex_shader : Some(0),
+                                  quad_fragment_shader : Some(0),
+                                  pid : 0,
+                                  m_vao : 0,
+                                  m_ibo : 0,
+                                  m_vbo : 0};
 
         let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
         let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
@@ -102,7 +122,50 @@ impl Device {
         // generate our FBO
         let fbos = gl::gen_framebuffers(1);
         self.m_fbo = fbos[0];
-        //gl::bind_framebuffer(gl::FRAMEBUFFER, self.m_fbo);
+        gl::bind_framebuffer(gl::FRAMEBUFFER, self.m_fbo);
+
+        // Generate a texture for our FBO
+        let texture_ids = gl::gen_textures(1);
+        self.m_fbo_tex_id = texture_ids[0];
+        gl::bind_texture(gl::TEXTURE_2D, self.m_fbo_tex_id);
+
+        let width = 256;
+        let height = 256;
+        // Use linear filtering to scale down and up
+        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
+        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);
+
+        // Clamp the image to border
+        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
+        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
+        // 0 for the data pointer means allocate some data for me
+        gl::tex_image_2d(gl::TEXTURE_2D,
+                         0,
+                         gl::RGBA as gl::GLint,
+                         width as gl::GLint,
+                         height as gl::GLint,
+                         0,
+                         gl::RGBA,
+                         gl::UNSIGNED_BYTE,
+                         None);
+
+        // Bind this texture to the FBO
+        gl::framebuffer_texture_2d(gl::FRAMEBUFFER,
+                                   gl::COLOR_ATTACHMENT0,
+                                   gl::TEXTURE_2D,
+                                   self.m_fbo_tex_id,
+                                   0);
+
+        // Check that its ok
+        unsafe {
+            let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
+            if status != gl::FRAMEBUFFER_COMPLETE {
+                panic!("Could not bind texture to fbo");
+            }
+        }
+
+        // Go back to our old fbo
+        gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
 
         // Buffers for our index array
         let ibo_buffers = gl::gen_buffers(1);
