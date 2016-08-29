@@ -103,6 +103,11 @@ fn main() {
     // Have to do this after we create the window which loads all the symbols.
     upload_texture(width, height, data.as_slice(), &device);
 
+    // When we upload the texture, we have to invert the texture coordinates
+    // since image data has the origin in the top left. However,
+    // once we re-draw the fbo, the image is already corrected for
+    // so change our vertices to not invert the texture coordinates to draw it
+    // at the proper orientation.
     device.setup_noninverting_vertices();
 
     for event in window.wait_events() {
