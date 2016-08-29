@@ -147,6 +147,20 @@ impl Device {
         gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
     }
 
+    pub fn setup_noninverting_vertices(&mut self) {
+        let vertices: [f32; 16] =
+        [
+            // vertices     // Texture coordinates, origin is bottom left
+            -1.0, -1.0,     0.0, 0.0,  // Bottom left
+            -1.0, 1.0,      0.0, 1.0, // Top Left
+            1.0, 1.0,       1.0, 1.0,    // Top right
+            1.0, -1.0,      1.0, 0.0,  // bottom right
+        ];
+
+        gl::bind_buffer(gl::ARRAY_BUFFER, self.m_vbo);
+        gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
+    }
+
     pub fn setup_vao(&mut self) {
         let vertices: [f32; 16] =
         [

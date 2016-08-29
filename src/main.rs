@@ -103,6 +103,8 @@ fn main() {
     // Have to do this after we create the window which loads all the symbols.
     upload_texture(width, height, data.as_slice(), &device);
 
+    device.setup_noninverting_vertices();
+
     for event in window.wait_events() {
         gl::clear(gl::COLOR_BUFFER_BIT);
         draw_quad_to_screen(device.m_fbo_tex_id);
