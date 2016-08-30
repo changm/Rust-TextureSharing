@@ -155,29 +155,11 @@ impl Device {
         // According to apple docs, ioshared surfaces only work for GL_TEXTURE_RECTANGLE
         // Which means fragment shader data has to be based on texels and not [-1..1].
         gl::bind_texture(gl::TEXTURE_RECTANGLE_ARB, self.m_shared_surface_id);
-
-        let ref raw_surface = self.m_shared_surface.as_ref().unwrap().as_concrete_TypeRef();
-
-        // Bind the texture to the iosurface
-        unsafe {
-            let cgl_context = cgl::CGLGetCurrentContext();
-            let gl_error = cgl::CGLTexImageIOSurface2D(cgl_context,
-                                                       gl::TEXTURE_RECTANGLE_ARB,
-                                                       gl::RGBA,
-                                                       width,
-                                                       height,
-                                                       gl::BGRA,
-                                                       gl::UNSIGNED_INT_8_8_8_8_REV,
-                                                       mem::transmute(raw_surface),
-                                                       0);
-
-            if gl_error != cgl::kCGLNoError {
-                let error_msg = CStr::from_ptr(CGLErrorString(gl_error));
-                let error_msg = error_msg.to_string_lossy();
-                // This will only actually leak memory if error_msg is a `Cow::Owned`, which
-                // will only happen if the platform gives us invalid unicode.
-                panic!(error_msg.into_owned());
-            }
+        match self.m_shared_surface {
+            Some(ref surface) => {
+                surface.bind_to_gl_texture(width, height);
+            },
+            None => { panic!("No surface created") },
         }
 
         // Use linear filtering to scale down and up
@@ -306,6 +288,7 @@ impl Device {
         self.m_vao = vaos[0];
         gl::bind_vertex_array(self.m_vao);
 
+        //self.setup_fbo();
         self.setup_fbo_iosurface();
 
         // Buffers for our index array
