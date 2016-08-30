@@ -17,3 +17,6 @@ nix = "0.6.0"
 
 # For IOSurface bindings.
 io-surface = "*"
+
+cgl = "*"
+core-foundation = "*"

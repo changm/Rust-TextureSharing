@@ -3,6 +3,9 @@ extern crate libc;
 extern crate image;
 extern crate gleam;
 extern crate nix;
+extern crate cgl;
+extern crate core_foundation;
+extern crate io_surface;
 
 use std::fs::File;
 use std::path::Path;
@@ -112,7 +115,9 @@ fn main() {
 
     for event in window.wait_events() {
         gl::clear(gl::COLOR_BUFFER_BIT);
-        draw_quad_to_screen(device.m_fbo_tex_id);
+        //draw_quad_to_screen(device.m_fbo_tex_id);
+        draw_quad_to_screen(device.m_shared_surface_id);
+
 
         window.swap_buffers();
 

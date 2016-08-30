@@ -7,6 +7,18 @@ use std::io::Read;
 use std::mem;
 use gleam::gl;
 
+use cgl;
+use core_foundation;
+use io_surface;
+
+use core_foundation::base::TCFType;
+use core_foundation::boolean::CFBoolean;
+use core_foundation::dictionary::CFDictionary;
+use core_foundation::number::CFNumber;
+use core_foundation::string::CFString;
+use cgl::{kCGLNoError, CGLGetCurrentContext, CGLTexImageIOSurface2D, CGLErrorString};
+use std::ffi::CStr;
+
 fn compile_shader(shader_path: &String,
                       shader_type: gl::GLenum) -> Option<gl::GLuint> {
     let mut shader_file = File::open(&Path::new(shader_path)).unwrap();
@@ -39,6 +51,10 @@ pub struct Device {
     // indices
     m_ibo : gl::GLuint,
     m_vbo : gl::GLuint,
+
+    // For a shared surface
+    pub m_shared_surface_id : gl::GLuint,
+    m_shared_surface : Option<io_surface::IOSurface>,
 }
 
 impl Drop for Device {
@@ -68,7 +84,9 @@ impl Device {
                                   pid : 0,
                                   m_vao : 0,
                                   m_ibo : 0,
-                                  m_vbo : 0};
+                                  m_vbo : 0,
+                                  m_shared_surface_id: 0,
+                                  m_shared_surface: None};
 
         let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
         let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
@@ -95,6 +113,111 @@ impl Device {
 
     pub fn end_frame(&self) {
         gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
+    }
+
+    pub fn setup_iosurface(&mut self) {
+        let width = 1024;
+        let height = 1024;
+
+        // Create an io surface
+        unsafe {
+            let width_key: CFString = TCFType::wrap_under_get_rule(io_surface::kIOSurfaceWidth);
+            let width_value: CFNumber = CFNumber::from_i32(width);
+
+            let height_key: CFString = TCFType::wrap_under_get_rule(io_surface::kIOSurfaceHeight);
+            let height_value: CFNumber = CFNumber::from_i32(height);
+
+            let bytes_per_row_key: CFString =
+                TCFType::wrap_under_get_rule(io_surface::kIOSurfaceBytesPerRow);
+            let bytes_per_row_value: CFNumber = CFNumber::from_i32(width * 4);
+
+            let bytes_per_elem_key: CFString =
+                TCFType::wrap_under_get_rule(io_surface::kIOSurfaceBytesPerElement);
+            let bytes_per_elem_value: CFNumber = CFNumber::from_i32(4);
+
+            let is_global_key: CFString =
+                TCFType::wrap_under_get_rule(io_surface::kIOSurfaceIsGlobal);
+            let is_global_value = CFBoolean::true_value();
+
+            self.m_shared_surface = Some(io_surface::new(&CFDictionary::from_CFType_pairs(&[
+                (width_key.as_CFType(), width_value.as_CFType()),
+                (height_key.as_CFType(), height_value.as_CFType()),
+                (bytes_per_row_key.as_CFType(), bytes_per_row_value.as_CFType()),
+                (bytes_per_elem_key.as_CFType(), bytes_per_elem_value.as_CFType()),
+                (is_global_key.as_CFType(), is_global_value.as_CFType()),
+            ])));
+        }
+
+        // Create our texture
+        let texture_ids = gl::gen_textures(1);
+        self.m_shared_surface_id = texture_ids[0];
+
+        // According to apple docs, ioshared surfaces only work for GL_TEXTURE_RECTANGLE
+        // Which means fragment shader data has to be based on texels and not [-1..1].
+        gl::bind_texture(gl::TEXTURE_RECTANGLE_ARB, self.m_shared_surface_id);
+
+        let ref raw_surface = self.m_shared_surface.as_ref().unwrap().as_concrete_TypeRef();
+
+        // Bind the texture to the iosurface
+        unsafe {
+            let cgl_context = cgl::CGLGetCurrentContext();
+            let gl_error = cgl::CGLTexImageIOSurface2D(cgl_context,
+                                                       gl::TEXTURE_RECTANGLE_ARB,
+                                                       gl::RGBA,
+                                                       width,
+                                                       height,
+                                                       gl::BGRA,
+                                                       gl::UNSIGNED_INT_8_8_8_8_REV,
+                                                       mem::transmute(raw_surface),
+                                                       0);
+
+            if gl_error != cgl::kCGLNoError {
+                let error_msg = CStr::from_ptr(CGLErrorString(gl_error));
+                let error_msg = error_msg.to_string_lossy();
+                // This will only actually leak memory if error_msg is a `Cow::Owned`, which
+                // will only happen if the platform gives us invalid unicode.
+                panic!(error_msg.into_owned());
+            }
+        }
+
+        // Use linear filtering to scale down and up
+        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
+        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);
+
+        // Clamp the image to border
+        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
+        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
+        gl::bind_texture(gl::TEXTURE_RECTANGLE, 0);
+        // End binding to our iosurface
+    }
+
+    pub fn setup_fbo_iosurface(&mut self) {
+        self.setup_iosurface();
+
+        // Now use this ios urface for an FBO
+        // generate our FBO
+        let fbos = gl::gen_framebuffers(1);
+        self.m_fbo = fbos[0];
+        gl::bind_framebuffer(gl::FRAMEBUFFER, self.m_fbo);
+
+        // Bind this texture to the FBO
+        gl::framebuffer_texture_2d(gl::FRAMEBUFFER,
+                                   gl::COLOR_ATTACHMENT0,
+                                   gl::TEXTURE_RECTANGLE,
+                                   self.m_shared_surface_id,
+                                   0);
+
+        // Check that its ok
+        unsafe {
+            let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
+            if status != gl::FRAMEBUFFER_COMPLETE {
+                panic!("Could not bind texture to fbo");
+            }
+        }
+
+        // Go back to our old fbo
+        gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
+
     }
 
     pub fn setup_fbo(&mut self) {
@@ -183,7 +306,7 @@ impl Device {
         self.m_vao = vaos[0];
         gl::bind_vertex_array(self.m_vao);
 
-        self.setup_fbo();
+        self.setup_fbo_iosurface();
 
         // Buffers for our index array
         let ibo_buffers = gl::gen_buffers(1);
