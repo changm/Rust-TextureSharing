@@ -33,10 +33,10 @@ fn draw_quad_to_screen(texture_id : gl::GLuint) {
 }
 
 // Instead of drawing this to the back buffer direclty, let's draw it to an FBO
-fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) {
+fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) -> u32 {
     println!("Uploading texture\n");
     // Buffers for our textures
-    device.begin_frame();
+    //device.begin_frame();
     let texture_buffers = gl::gen_textures(1);
     let texture_buffer = texture_buffers[0];
     gl::bind_texture(gl::TEXTURE_2D, texture_buffer);
@@ -59,9 +59,45 @@ fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) {
                      gl::UNSIGNED_BYTE,
                      Some(data));
 
+    gl::clear(gl::COLOR_BUFFER_BIT);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
     gl::flush();
-    device.end_frame();
+    //device.end_frame();
+
+    return texture_buffer;
+}
+
+fn upload_texture_rectangle(width: u32, height: u32, data: &[u8], device : &Device) -> u32 {
+    println!("Uploading texture\n");
+    // Buffers for our textures
+    //device.begin_frame();
+    let texture_buffers = gl::gen_textures(1);
+    let texture_buffer = texture_buffers[0];
+    gl::enable(gl::TEXTURE_RECTANGLE);
+    gl::bind_texture(gl::TEXTURE_RECTANGLE, texture_buffer);
+
+    // Use linear filtering to scale down and up
+    gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
+    gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);
+
+    // Clamp the image to border
+    gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
+    gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
+
+    gl::tex_image_2d(gl::TEXTURE_RECTANGLE,
+                     0,
+                     gl::RGBA as gl::GLint,
+                     width as gl::GLint,
+                     height as gl::GLint,
+                     0,
+                     gl::RGBA,
+                     gl::UNSIGNED_BYTE,
+                     Some(data));
+
+    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+    gl::flush();
+    //device.end_frame();
+    return texture_buffer;
 }
 
 fn create_processes() {
@@ -104,20 +140,24 @@ fn main() {
     device.setup_vao();
 
     // Have to do this after we create the window which loads all the symbols.
-    upload_texture(width, height, data.as_slice(), &device);
+    //let texture_id = upload_texture(width, height, data.as_slice(), &device);
+    let texture_id = upload_texture_rectangle(width, height, data.as_slice(), &device);
 
     // When we upload the texture, we have to invert the texture coordinates
     // since image data has the origin in the top left. However,
     // once we re-draw the fbo, the image is already corrected for
     // so change our vertices to not invert the texture coordinates to draw it
     // at the proper orientation.
-    device.setup_noninverting_vertices();
+    //device.setup_noninverting_vertices();
+    //gl::bind_texture(gl::TEXTURE_RECTANGLE_ARB, device.m_shared_surface_id);
+    //device.debug_shaders();
 
     for event in window.wait_events() {
         gl::clear(gl::COLOR_BUFFER_BIT);
         //draw_quad_to_screen(device.m_fbo_tex_id);
-        draw_quad_to_screen(device.m_shared_surface_id);
-
+        //draw_quad_to_screen(device.m_shared_surface_id);
+        //draw_quad_to_screen(texture_id);
+        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 
         window.swap_buffers();
 

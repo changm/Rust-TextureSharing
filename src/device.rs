@@ -45,7 +45,9 @@ pub struct Device {
     pub m_fbo_tex_id : gl::GLuint,
     quad_vertex_shader : Option<gl::GLuint>,
     quad_fragment_shader : Option<gl::GLuint>,
+    debug_fragment_shader : Option<gl::GLuint>,
     pid : gl::GLuint,
+    debug_pid : gl::GLuint,
 
     m_vao : gl::GLuint,
     // indices
@@ -64,7 +66,10 @@ impl Drop for Device {
 
         gl::delete_shader(self.quad_vertex_shader.unwrap());
         gl::delete_shader(self.quad_fragment_shader.unwrap());
+        gl::delete_shader(self.debug_fragment_shader.unwrap());
+
         gl::delete_program(self.pid);
+        gl::delete_program(self.debug_pid);
 
         let vertex_arrays = [self.m_vao];
         gl::delete_vertex_arrays(&vertex_arrays);
@@ -81,7 +86,9 @@ impl Device {
                                   m_fbo_tex_id : 0,
                                   quad_vertex_shader : Some(0),
                                   quad_fragment_shader : Some(0),
+                                  debug_fragment_shader : Some(0),
                                   pid : 0,
+                                  debug_pid : 0,
                                   m_vao : 0,
                                   m_ibo : 0,
                                   m_vbo : 0,
@@ -90,10 +97,12 @@ impl Device {
 
         let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
         let fragment_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment.glsl");
+        let debug_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/fragment_texture.glsl");
 
         // Compile our shaders
         device.quad_vertex_shader = compile_shader(&vertex_shader, gl::VERTEX_SHADER);
         device.quad_fragment_shader = compile_shader(&fragment_shader, gl::FRAGMENT_SHADER);
+        device.debug_fragment_shader = compile_shader(&debug_shader, gl::FRAGMENT_SHADER);
 
         // Create our program.
         device.pid = gl::create_program();
@@ -104,7 +113,23 @@ impl Device {
         gl::link_program(device.pid);
         gl::use_program(device.pid);
 
+        // Create our program.
+        device.debug_pid = gl::create_program();
+        gl::attach_shader(device.debug_pid, device.quad_vertex_shader.unwrap());
+        gl::attach_shader(device.debug_pid, device.debug_fragment_shader.unwrap());
+
+        // Use the program
+        gl::link_program(device.debug_pid);
+
         return device;
+    }
+
+    pub fn debug_shaders(&self) {
+        gl::use_program(self.debug_pid);
+    }
+
+    pub fn release_shaders(&self) {
+        gl::use_program(self.pid);
     }
 
     pub fn begin_frame(&self) {
@@ -154,7 +179,7 @@ impl Device {
 
         // According to apple docs, ioshared surfaces only work for GL_TEXTURE_RECTANGLE
         // Which means fragment shader data has to be based on texels and not [-1..1].
-        gl::bind_texture(gl::TEXTURE_RECTANGLE_ARB, self.m_shared_surface_id);
+        gl::bind_texture(gl::TEXTURE_RECTANGLE, self.m_shared_surface_id);
         match self.m_shared_surface {
             Some(ref surface) => {
                 surface.bind_to_gl_texture(width, height);
@@ -163,12 +188,12 @@ impl Device {
         }
 
         // Use linear filtering to scale down and up
-        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
-        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);
+        gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
+        gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);
 
         // Clamp the image to border
-        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
-        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
+        gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
+        gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
         gl::bind_texture(gl::TEXTURE_RECTANGLE, 0);
         // End binding to our iosurface
     }
@@ -197,9 +222,12 @@ impl Device {
             }
         }
 
+        // Make sure we clear everything
+        gl::clear(gl::COLOR_BUFFER_BIT);
+        gl::flush();
+
         // Go back to our old fbo
         gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
-
     }
 
     pub fn setup_fbo(&mut self) {
@@ -255,18 +283,55 @@ impl Device {
     pub fn setup_noninverting_vertices(&mut self) {
         let vertices: [f32; 16] =
         [
+            // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
+            // So we flip our texture coordinates here instead.
+            -1.0, -1.0,     0.0, 1.0,  // Bottom left
+            -1.0, 1.0,      0.0, 0.0, // Top Left
+            1.0, 1.0,       1.0, 0.0,    // Top right
+            1.0, -1.0,      1.0, 1.0,  // bottom right
+        ];
+
+/*
+        let vertices: [f32; 16] =
+        [
             // vertices     // Texture coordinates, origin is bottom left
             -1.0, -1.0,     0.0, 0.0,  // Bottom left
             -1.0, 1.0,      0.0, 1.0, // Top Left
             1.0, 1.0,       1.0, 1.0,    // Top right
             1.0, -1.0,      1.0, 0.0,  // bottom right
         ];
+        */
 
         gl::bind_buffer(gl::ARRAY_BUFFER, self.m_vbo);
         gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
     }
 
     pub fn setup_vao(&mut self) {
+        // These coordinates are texture coordinates in the size of the image.
+        let vertices: [f32; 16] =
+        [
+            // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
+            // So we flip our texture coordinates here instead.
+            -1.0, -1.0,     0.0, 0.0,  // Bottom left
+            -1.0, 1.0,      0.0, 256.0, // Top Left
+            1.0, 1.0,       256.0, 256.0,    // Top right
+            1.0, -1.0,      256.0, 0.0,  // bottom right
+        ];
+
+
+/*
+        let vertices: [f32; 16] =
+        [
+            // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
+            // So we flip our texture coordinates here instead.
+            -1.0, -1.0,     0.0, 1024.0,  // Bottom left
+            -1.0, 1.0,      0.0, 0.0, // Top Left
+            1.0, 1.0,       1024.0, 0.0,    // Top right
+            1.0, -1.0,      1024.0, 1024.0,  // bottom right
+        ];
+        */
+
+/*
         let vertices: [f32; 16] =
         [
             // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
@@ -276,6 +341,7 @@ impl Device {
             1.0, 1.0,       1.0, 0.0,    // Top right
             1.0, -1.0,      1.0, 1.0,  // bottom right
         ];
+        */
 
         let indices : [u32 ; 6] =
         [
@@ -287,9 +353,6 @@ impl Device {
         let vaos = gl::gen_vertex_arrays(1);
         self.m_vao = vaos[0];
         gl::bind_vertex_array(self.m_vao);
-
-        //self.setup_fbo();
-        self.setup_fbo_iosurface();
 
         // Buffers for our index array
         let ibo_buffers = gl::gen_buffers(1);
