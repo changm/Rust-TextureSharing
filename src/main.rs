@@ -6,6 +6,10 @@ extern crate nix;
 extern crate cgl;
 extern crate core_foundation;
 extern crate io_surface;
+extern crate ipc_channel;
+
+use ipc_channel::platform::{OsIpcChannel, OsIpcReceiverSet, OsIpcOneShotServer};
+use ipc_channel::platform::{OsIpcSharedMemory, OsIpcSender};
 
 use std::fs::File;
 use std::path::Path;
@@ -100,21 +104,7 @@ fn upload_texture_rectangle(width: u32, height: u32, data: &[u8], device : &Devi
     return texture_buffer;
 }
 
-fn create_processes() {
-    match fork().expect("fork failed") {
-        ForkResult::Parent{child} => {
-            sleep(5);
-            println!("Parent alive, child is: {:?}", child);
-            kill(child, SIGKILL).expect("Could not kill child");
-        }
-        ForkResult::Child => {
-            println!("Child forked");
-            loop {};
-        }
-    }
-}
-
-fn main() {
+fn draw_image_to_screen() {
     // let's upload the image
     let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
     let mut img = image::open(&Path::new(image_path)).unwrap();
@@ -170,4 +160,37 @@ fn main() {
             _ => ()
         }
     }
+}
+
+fn create_processes() {
+    let (server, name) = OsIpcOneShotServer::new().unwrap();
+
+    match fork().expect("fork failed") {
+        ForkResult::Parent{child} => {
+            let (rx, mut received_data, received_channels, received_shared_memory_regions) =
+                server.accept().unwrap();
+            println!("Recevived data is: {:?}", received_data);
+            sleep(1);
+
+            let (received_data, received_channels, received_shared_memory_regions) 
+                = rx.recv().unwrap();
+            println!("Recevived again data is: {:?}", received_data);
+
+            println!("Parent alive, child is: {:?}", child);
+            //kill(child, SIGKILL).expect("Could not kill child");
+        }
+        ForkResult::Child => {
+            let data : &[u8] = b"HEllo from child";
+            let tx = OsIpcSender::connect(name).unwrap();
+            tx.send(data, vec![], vec![]).unwrap();
+
+            let data : &[u8] = b"Try again";
+            tx.send(data, vec![], vec![]).unwrap();
+            unsafe { libc::exit(0); }
+        }
+    }
+}
+
+fn main() {
+    create_processes();
 }

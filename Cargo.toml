@@ -20,3 +20,5 @@ io-surface = "*"
 
 cgl = "*"
 core-foundation = "*"
+
+ipc-channel = "*"
