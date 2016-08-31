@@ -306,16 +306,30 @@ impl Device {
         gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
     }
 
+    pub fn setup_shared_texture_vertices(&self) {
+        let vertices: [f32; 16] =
+        [
+            // vertices
+            // So we flip our texture coordinates here instead.
+            -1.0, -1.0,     0.0, 0.0,  // Bottom left
+            -1.0, 1.0,      0.0, 1024.0, // Top Left
+            1.0, 1.0,       1024.0, 1024.0,    // Top right
+            1.0, -1.0,      1024.0, 0.0,  // bottom right
+        ];
+        gl::bind_buffer(gl::ARRAY_BUFFER, self.m_vbo);
+        gl::buffer_data(gl::ARRAY_BUFFER, &vertices, gl::STATIC_DRAW);
+    }
+
     pub fn setup_vao(&mut self) {
         // These coordinates are texture coordinates in the size of the image.
         let vertices: [f32; 16] =
         [
             // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
             // So we flip our texture coordinates here instead.
-            -1.0, -1.0,     0.0, 0.0,  // Bottom left
-            -1.0, 1.0,      0.0, 256.0, // Top Left
-            1.0, 1.0,       256.0, 256.0,    // Top right
-            1.0, -1.0,      256.0, 0.0,  // bottom right
+            -1.0, -1.0,     0.0, 256.0,  // Bottom left
+            -1.0, 1.0,      0.0, 0.0, // Top Left
+            1.0, 1.0,       256.0, 0.0,    // Top right
+            1.0, -1.0,      256.0, 256.0,  // bottom right
         ];
 
 

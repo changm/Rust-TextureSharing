@@ -70,7 +70,7 @@ fn upload_texture(width: u32, height: u32, data: &[u8], device : &Device) -> u32
 fn upload_texture_rectangle(width: u32, height: u32, data: &[u8], device : &Device) -> u32 {
     println!("Uploading texture\n");
     // Buffers for our textures
-    //device.begin_frame();
+    device.begin_frame();
     let texture_buffers = gl::gen_textures(1);
     let texture_buffer = texture_buffers[0];
     gl::enable(gl::TEXTURE_RECTANGLE);
@@ -96,7 +96,7 @@ fn upload_texture_rectangle(width: u32, height: u32, data: &[u8], device : &Devi
 
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
     gl::flush();
-    //device.end_frame();
+    device.end_frame();
     return texture_buffer;
 }
 
@@ -138,6 +138,7 @@ fn main() {
 
     let mut device = Device::new();
     device.setup_vao();
+    device.setup_fbo_iosurface();
 
     // Have to do this after we create the window which loads all the symbols.
     //let texture_id = upload_texture(width, height, data.as_slice(), &device);
@@ -151,6 +152,9 @@ fn main() {
     //device.setup_noninverting_vertices();
     //gl::bind_texture(gl::TEXTURE_RECTANGLE_ARB, device.m_shared_surface_id);
     //device.debug_shaders();
+
+    device.setup_shared_texture_vertices();
+    gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_surface_id);
 
     for event in window.wait_events() {
         gl::clear(gl::COLOR_BUFFER_BIT);
