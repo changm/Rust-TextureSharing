@@ -110,31 +110,40 @@ fn create_processes() {
 
     match fork().expect("fork failed") {
         ForkResult::Parent{child} => {
-            let (rx, mut received_data, received_channels, received_shared_memory_regions) =
+            let (rx, mut received_data, mut received_channels, received_shared_memory_regions) =
                 server.accept().unwrap();
             println!("Recevived data is: {:?}", received_data);
-            sleep(1);
+            // Have to receive the tx channel from the child
+            let tx = received_channels.pop().unwrap().to_sender();
+
+            let data: &[u8] = b"Parent";
+            tx.send(data, vec![], vec![]);
 
             let (received_data, received_channels, received_shared_memory_regions)
                 = rx.recv().unwrap();
             println!("Recevived again data is: {:?}", received_data);
-
-            println!("Parent alive, child is: {:?}", child);
-            //kill(child, SIGKILL).expect("Could not kill child");
         }
         ForkResult::Child => {
             let data : &[u8] = b"HEllo from child";
-            let tx = OsIpcSender::connect(name).unwrap();
-            tx.send(data, vec![], vec![]).unwrap();
+            let super_tx = OsIpcSender::connect(name).unwrap();
+            let (tx, rx) = ipc_channel::platform::channel().unwrap();
+            println!("Child TX: {:?}, RX: {:?}", tx, rx);
 
-            let data : &[u8] = b"Try again";
-            tx.send(data, vec![], vec![]).unwrap();
+            super_tx.send(data, vec![OsIpcChannel::Sender(tx)], vec![]);
+
+            let (received_data, received_channels, received_shared_memory_regions)
+                = rx.recv().unwrap();
+            println!("Child received: {:?}", received_data);
+
+            let data: &[u8] = b"Try again";
+            super_tx.send(data, vec![], vec![]);
+
             unsafe { libc::exit(0); }
         }
     }
 }
 
 fn main() {
-    draw_image_to_screen();
-    //create_processes();
+    //draw_image_to_screen();
+    create_processes();
 }
