@@ -75,8 +75,10 @@ fn upload_texture_rectangle(width: u32, height: u32, data: &[u8], device : &Devi
 
 fn create_glutin_window() -> glutin::Window {
     let window = glutin::Window::new().unwrap();
+    println!("Created window\n");
 
     unsafe {
+        println!("Making current \n");
         window.make_current();
         gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
         gl::ClearColor(1.0, 1.0, 1.0, 1.0);
@@ -125,8 +127,13 @@ fn draw_image_to_screen(window : &glutin::Window, device : &mut Device) {
     }
 }
 
-fn child_render() {
-
+fn child_render(shared_surface_id : u8) {
+    println!("Starting child window\n");
+    let window = create_glutin_window();
+    println!("Created child window\n");
+    let mut child_device = Device::new();
+    println!("Created child device\n");
+    child_device.connect_iosurface(shared_surface_id);
 }
 
 fn create_processes() {
@@ -134,6 +141,8 @@ fn create_processes() {
     let window = create_glutin_window();
     let mut device = Device::new();
     draw_image_to_screen(&window, &mut device);
+    let shared_surface = device.m_shared_surface_id;
+    println!("Shared surface id parent: {:?}", shared_surface);
 
     match fork().expect("fork failed") {
         ForkResult::Parent{child} => {
@@ -141,7 +150,7 @@ fn create_processes() {
                 server.accept().unwrap();
             // Have to receive the tx channel from the child
             let tx = received_channels.pop().unwrap().to_sender();
-            let data : &[u8] = &[Message::CHILD_RENDER as u8];
+            let data : &[u8] = &[Message::CHILD_RENDER as u8, shared_surface as u8];
             tx.send(data, vec![], vec![]);
 
             loop {
@@ -195,7 +204,9 @@ fn create_processes() {
                     },
                     Message::PARENT_RENDER => println!("Child:: received parent render"),
                     Message::CHILD_RENDER => {
-                        child_render();
+                        let shared_surface_id = received_data[1];
+                        println!("Child surface: {:?}", shared_surface_id);
+                        child_render(shared_surface_id);
                     },
                 }
             } // end loop

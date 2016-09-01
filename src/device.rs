@@ -173,6 +173,10 @@ impl Device {
             ])));
         }
 
+        self.bind_iosurface(width, height);
+    }
+
+    pub fn bind_iosurface(&mut self, width: i32, height: i32) {
         // Create our texture
         let texture_ids = gl::gen_textures(1);
         self.m_shared_surface_id = texture_ids[0];
@@ -195,7 +199,18 @@ impl Device {
         gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
         gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
         gl::bind_texture(gl::TEXTURE_RECTANGLE, 0);
-        // End binding to our iosurface
+
+    }
+
+    pub fn connect_iosurface(&mut self, iosurface_id : u8) {
+        let width = 1024;
+        let height = 1024;
+
+        println!("Child looking up surface\n");
+        self.m_shared_surface_id = iosurface_id as u32;
+        self.m_shared_surface = Some(io_surface::lookup(self.m_shared_surface_id));
+        println!("Child got surface: {:?}", self.m_shared_surface);
+        self.bind_iosurface(width, height);
     }
 
     pub fn setup_fbo_iosurface(&mut self) {
