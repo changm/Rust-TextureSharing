@@ -230,56 +230,6 @@ impl Device {
         gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
     }
 
-    pub fn setup_fbo(&mut self) {
-        // generate our FBO
-        let fbos = gl::gen_framebuffers(1);
-        self.m_fbo = fbos[0];
-        gl::bind_framebuffer(gl::FRAMEBUFFER, self.m_fbo);
-
-        // Generate a texture for our FBO
-        let texture_ids = gl::gen_textures(1);
-        self.m_fbo_tex_id = texture_ids[0];
-        gl::bind_texture(gl::TEXTURE_2D, self.m_fbo_tex_id);
-
-        let width = 1024;
-        let height = 1024;
-        // Use linear filtering to scale down and up
-        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as gl::GLint);
-        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as gl::GLint);
-
-        // Clamp the image to border
-        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
-        gl::tex_parameter_i(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
-        // 0 for the data pointer means allocate some data for me
-        gl::tex_image_2d(gl::TEXTURE_2D,
-                         0,
-                         gl::RGBA as gl::GLint,
-                         width as gl::GLint,
-                         height as gl::GLint,
-                         0,
-                         gl::RGBA,
-                         gl::UNSIGNED_BYTE,
-                         None);
-
-        // Bind this texture to the FBO
-        gl::framebuffer_texture_2d(gl::FRAMEBUFFER,
-                                   gl::COLOR_ATTACHMENT0,
-                                   gl::TEXTURE_2D,
-                                   self.m_fbo_tex_id,
-                                   0);
-
-        // Check that its ok
-        unsafe {
-            let status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
-            if status != gl::FRAMEBUFFER_COMPLETE {
-                panic!("Could not bind texture to fbo");
-            }
-        }
-
-        // Go back to our old fbo
-        gl::bind_framebuffer(gl::FRAMEBUFFER, 0);
-    }
-
     pub fn setup_noninverting_vertices(&mut self) {
         let vertices: [f32; 16] =
         [
@@ -331,31 +281,6 @@ impl Device {
             1.0, 1.0,       256.0, 0.0,    // Top right
             1.0, -1.0,      256.0, 256.0,  // bottom right
         ];
-
-
-/*
-        let vertices: [f32; 16] =
-        [
-            // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
-            // So we flip our texture coordinates here instead.
-            -1.0, -1.0,     0.0, 1024.0,  // Bottom left
-            -1.0, 1.0,      0.0, 0.0, // Top Left
-            1.0, 1.0,       1024.0, 0.0,    // Top right
-            1.0, -1.0,      1024.0, 1024.0,  // bottom right
-        ];
-        */
-
-/*
-        let vertices: [f32; 16] =
-        [
-            // vertices     // Texture coordinates, origin is bottom left, but images decode top left origin
-            // So we flip our texture coordinates here instead.
-            -1.0, -1.0,     0.0, 1.0,  // Bottom left
-            -1.0, 1.0,      0.0, 0.0, // Top Left
-            1.0, 1.0,       1.0, 0.0,    // Top right
-            1.0, -1.0,      1.0, 1.0,  // bottom right
-        ];
-        */
 
         let indices : [u32 ; 6] =
         [
