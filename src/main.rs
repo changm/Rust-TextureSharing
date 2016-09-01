@@ -7,6 +7,8 @@ extern crate cgl;
 extern crate core_foundation;
 extern crate io_surface;
 extern crate ipc_channel;
+#[macro_use] extern crate enum_primitive;
+use enum_primitive::FromPrimitive;
 
 use ipc_channel::platform::{OsIpcChannel, OsIpcReceiverSet, OsIpcOneShotServer};
 use ipc_channel::platform::{OsIpcSharedMemory, OsIpcSender};
@@ -21,6 +23,16 @@ use nix::unistd::*;
 
 use device::{Device};
 mod device;
+
+// Sad that I need a crate to convert a u8 to a message.
+enum_from_primitive! {
+#[derive(Debug,PartialEq)]
+enum Message {
+    QUIT,
+    PARENT_RENDER,
+    CHILD_RENDER,
+}
+}
 
 // Returns the raw pixel data
 fn get_image_data() -> Vec<u8> {
@@ -61,7 +73,20 @@ fn upload_texture_rectangle(width: u32, height: u32, data: &[u8], device : &Devi
     return texture_buffer;
 }
 
-fn draw_image_to_screen() {
+fn create_glutin_window() -> glutin::Window {
+    let window = glutin::Window::new().unwrap();
+
+    unsafe {
+        window.make_current();
+        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
+        gl::ClearColor(1.0, 1.0, 1.0, 1.0);
+        gl::viewport(0, 0, 1024, 1024);
+    }
+
+    return window;
+}
+
+fn draw_image_to_screen(window : &glutin::Window, device : &mut Device) {
     // let's upload the image
     let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
     let mut img = image::open(&Path::new(image_path)).unwrap();
@@ -72,18 +97,9 @@ fn draw_image_to_screen() {
     let data = rgba_image.to_vec();
     //println!("Data is: {:?}", data);
 
-    let window = glutin::Window::new().unwrap();
-    unsafe {
-        window.make_current();
-        gl::load_with(|symbol| window.get_proc_address(symbol) as *const _);
-        gl::ClearColor(1.0, 1.0, 1.0, 1.0);
-        gl::viewport(0, 0, 1024, 1024);
-    }
-
     // Get the viewport size
     let viewport_size = gl::get_integer_v(gl::MAX_VIEWPORT_DIMS);
 
-    let mut device = Device::new();
     device.setup_vao();
     device.setup_fbo_iosurface();
 
@@ -95,24 +111,29 @@ fn draw_image_to_screen() {
     gl::clear(gl::COLOR_BUFFER_BIT);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 
-
     for event in window.wait_events() {
         gl::clear(gl::COLOR_BUFFER_BIT);
         gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 
         window.swap_buffers();
-        println!("Event is: {:?}", event);
 
         match event {
             glutin::Event::Closed => break,
+            glutin::Event::Awakened => break,
             _ => ()
         }
     }
 }
 
+fn child_render() {
+
+}
+
 fn create_processes() {
     let (server, name) = OsIpcOneShotServer::new().unwrap();
-    draw_image_to_screen();
+    let window = create_glutin_window();
+    let mut device = Device::new();
+    draw_image_to_screen(&window, &mut device);
 
     match fork().expect("fork failed") {
         ForkResult::Parent{child} => {
@@ -120,34 +141,66 @@ fn create_processes() {
                 server.accept().unwrap();
             // Have to receive the tx channel from the child
             let tx = received_channels.pop().unwrap().to_sender();
-
-            let data: &[u8] = b"Parent";
+            let data : &[u8] = &[Message::CHILD_RENDER as u8];
             tx.send(data, vec![], vec![]);
 
-            let (received_data, received_channels, received_shared_memory_regions)
-                = rx.recv().unwrap();
-            println!("Recevived again data is: {:?}", received_data);
-            sleep(5);
+            loop {
+                println!("Parent waiting to receive something\n");
+                let (received_data, received_channels, received_shared_memory_regions)
+                    = rx.recv().unwrap();
+                println!("Parent received: {:?}", received_data);
+
+                let message_data = received_data[0];
+                let received_message : Message = Message::from_u8(message_data).unwrap();
+                match received_message {
+                    Message::QUIT => {
+                        println!("Child received quite message");
+                        unsafe { libc::exit(0); }
+                    },
+                        Message::PARENT_RENDER => println!("Child:: received parent render"),
+                        Message::CHILD_RENDER => println!("Child needs to render"),
+                }
+
+                for event in window.poll_events() {
+                    gl::clear(gl::COLOR_BUFFER_BIT);
+                    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+
+                    window.swap_buffers();
+
+                    match event {
+                        glutin::Event::Closed => break,
+                        _ => (),
+                    }
+                }
+            }
         }
         ForkResult::Child => {
             let data : &[u8] = b"HEllo from child";
             let super_tx = OsIpcSender::connect(name).unwrap();
             let (tx, rx) = ipc_channel::platform::channel().unwrap();
-            println!("Child TX: {:?}, RX: {:?}", tx, rx);
-
+            // Send the channel to the parent, I don't know what tx is actually for
             super_tx.send(data, vec![OsIpcChannel::Sender(tx)], vec![]);
 
-            let (received_data, received_channels, received_shared_memory_regions)
-                = rx.recv().unwrap();
-            println!("Child received: {:?}", received_data);
+            loop {
+                let (received_data, received_channels, received_shared_memory_regions)
+                    = rx.recv().unwrap();
+                println!("Child received: {:?}", received_data);
 
-            let data: &[u8] = b"Try again";
-            super_tx.send(data, vec![], vec![]);
-            sleep(5);
-
-            unsafe { libc::exit(0); }
-        }
-    }
+                let message_data = received_data[0];
+                let received_message : Message = Message::from_u8(message_data).unwrap();
+                match received_message {
+                    Message::QUIT => {
+                        println!("Child received quite message");
+                        unsafe { libc::exit(0); }
+                    },
+                    Message::PARENT_RENDER => println!("Child:: received parent render"),
+                    Message::CHILD_RENDER => {
+                        child_render();
+                    },
+                }
+            } // end loop
+        } // end child
+    } // End fork
 }
 
 fn main() {
