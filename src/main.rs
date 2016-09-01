@@ -92,11 +92,16 @@ fn draw_image_to_screen() {
     device.setup_shared_texture_vertices();
     gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_surface_id);
 
+    gl::clear(gl::COLOR_BUFFER_BIT);
+    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+
+
     for event in window.wait_events() {
         gl::clear(gl::COLOR_BUFFER_BIT);
         gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
 
         window.swap_buffers();
+        println!("Event is: {:?}", event);
 
         match event {
             glutin::Event::Closed => break,
@@ -107,12 +112,12 @@ fn draw_image_to_screen() {
 
 fn create_processes() {
     let (server, name) = OsIpcOneShotServer::new().unwrap();
+    draw_image_to_screen();
 
     match fork().expect("fork failed") {
         ForkResult::Parent{child} => {
             let (rx, mut received_data, mut received_channels, received_shared_memory_regions) =
                 server.accept().unwrap();
-            println!("Recevived data is: {:?}", received_data);
             // Have to receive the tx channel from the child
             let tx = received_channels.pop().unwrap().to_sender();
 
@@ -122,6 +127,7 @@ fn create_processes() {
             let (received_data, received_channels, received_shared_memory_regions)
                 = rx.recv().unwrap();
             println!("Recevived again data is: {:?}", received_data);
+            sleep(5);
         }
         ForkResult::Child => {
             let data : &[u8] = b"HEllo from child";
@@ -137,6 +143,7 @@ fn create_processes() {
 
             let data: &[u8] = b"Try again";
             super_tx.send(data, vec![], vec![]);
+            sleep(5);
 
             unsafe { libc::exit(0); }
         }
