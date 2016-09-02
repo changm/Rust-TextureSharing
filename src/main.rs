@@ -34,13 +34,6 @@ enum Message {
 }
 }
 
-// Returns the raw pixel data
-fn get_image_data() -> Vec<u8> {
-    let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
-    let img = image::open(&Path::new(image_path)).unwrap();
-    return img.raw_pixels();
-}
-
 fn upload_texture_rectangle(device : &Device) -> u32 {
     // let's upload the image
     let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
@@ -126,35 +119,6 @@ fn setup_parent(window : &glutin::Window, device : &mut Device) {
     // Have to do this after we create the window which loads all the symbols.
     //let texture_id = upload_texture_rectangle(&device);
     redraw_parent_from_shared_iosurface(window, device);
-}
-
-fn draw_image_to_screen(window : &glutin::Window, device : &mut Device) {
-    // Get the viewport size
-    let viewport_size = gl::get_integer_v(gl::MAX_VIEWPORT_DIMS);
-
-    device.setup_vao();
-    device.setup_iosurface();
-    device.setup_fbo_iosurface();
-
-    // Have to do this after we create the window which loads all the symbols.
-    device.setup_shared_texture_vertices();
-    gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_gl_texture_id);
-
-    gl::clear(gl::COLOR_BUFFER_BIT);
-    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
-
-    for event in window.wait_events() {
-        gl::clear(gl::COLOR_BUFFER_BIT);
-        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
-
-        window.swap_buffers();
-
-        match event {
-            glutin::Event::Closed => break,
-            glutin::Event::Awakened => break,
-            _ => ()
-        }
-    }
 }
 
 fn child_render(shared_surface_id : u8) {
@@ -247,6 +211,5 @@ fn create_processes() {
 }
 
 fn main() {
-    //draw_image_to_screen();
     create_processes();
 }
