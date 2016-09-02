@@ -97,20 +97,9 @@ fn create_glutin_window() -> glutin::Window {
     return window;
 }
 
-fn redraw_parent(window: &glutin::Window, device : &mut Device) {
-
-}
-
-fn setup_parent(window : &glutin::Window, device : &mut Device) {
-    device.setup_vao();
-    device.setup_iosurface();
-    device.setup_fbo_iosurface();
-
-    // Have to do this after we create the window which loads all the symbols.
-    let texture_id = upload_texture_rectangle(&device);
+fn redraw_parent_from_shared_iosurface(window: &glutin::Window, device : &mut Device) {
     device.setup_shared_texture_vertices();
     gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_gl_texture_id);
-    //gl::bind_texture(gl::TEXTURE_RECTANGLE, texture_id);
 
     gl::clear(gl::COLOR_BUFFER_BIT);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
@@ -129,6 +118,15 @@ fn setup_parent(window : &glutin::Window, device : &mut Device) {
     }
 }
 
+fn setup_parent(window : &glutin::Window, device : &mut Device) {
+    device.setup_vao();
+    device.setup_iosurface();
+    device.setup_fbo_iosurface();
+
+    // Have to do this after we create the window which loads all the symbols.
+    //let texture_id = upload_texture_rectangle(&device);
+    redraw_parent_from_shared_iosurface(window, device);
+}
 
 fn draw_image_to_screen(window : &glutin::Window, device : &mut Device) {
     // Get the viewport size
@@ -184,6 +182,7 @@ fn create_processes() {
             setup_parent(&window, &mut device);
             let iosurface_id = device.m_shared_iosurface_id;
             println!("Shared surface id parent: {:?}", iosurface_id);
+            sleep(2);
 
             let (rx, mut received_data, mut received_channels, received_shared_memory_regions) =
                 server.accept().unwrap();
@@ -210,7 +209,7 @@ fn create_processes() {
                 }
 
                 println!("Parent rendering to screen\n");
-                //draw_image_to_screen(&window, &mut device);
+                redraw_parent_from_shared_iosurface(&window, &mut device);
             }
         }
         ForkResult::Child => {
