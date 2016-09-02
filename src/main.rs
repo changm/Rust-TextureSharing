@@ -108,7 +108,7 @@ fn draw_image_to_screen(window : &glutin::Window, device : &mut Device) {
     // Have to do this after we create the window which loads all the symbols.
     let texture_id = upload_texture_rectangle(width, height, data.as_slice(), &device);
     device.setup_shared_texture_vertices();
-    gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_surface_id);
+    gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_gl_texture_id);
 
     gl::clear(gl::COLOR_BUFFER_BIT);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
@@ -138,19 +138,19 @@ fn child_render(shared_surface_id : u8) {
 
 fn create_processes() {
     let (server, name) = OsIpcOneShotServer::new().unwrap();
-    let window = create_glutin_window();
-    let mut device = Device::new();
-    draw_image_to_screen(&window, &mut device);
-    let shared_surface = device.m_shared_surface_id;
-    println!("Shared surface id parent: {:?}", shared_surface);
-
     match fork().expect("fork failed") {
         ForkResult::Parent{child} => {
+            let window = create_glutin_window();
+            let mut device = Device::new();
+            draw_image_to_screen(&window, &mut device);
+            let iosurface_id = device.m_shared_iosurface_id;
+            println!("Shared surface id parent: {:?}", iosurface_id);
+
             let (rx, mut received_data, mut received_channels, received_shared_memory_regions) =
                 server.accept().unwrap();
             // Have to receive the tx channel from the child
             let tx = received_channels.pop().unwrap().to_sender();
-            let data : &[u8] = &[Message::CHILD_RENDER as u8, shared_surface as u8];
+            let data : &[u8] = &[Message::CHILD_RENDER as u8, iosurface_id as u8];
             tx.send(data, vec![], vec![]);
 
             loop {

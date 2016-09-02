@@ -55,7 +55,8 @@ pub struct Device {
     m_vbo : gl::GLuint,
 
     // For a shared surface
-    pub m_shared_surface_id : gl::GLuint,
+    pub m_shared_gl_texture_id : gl::GLuint,
+    pub m_shared_iosurface_id : io_surface::IOSurfaceID,
     m_shared_surface : Option<io_surface::IOSurface>,
 }
 
@@ -92,7 +93,8 @@ impl Device {
                                   m_vao : 0,
                                   m_ibo : 0,
                                   m_vbo : 0,
-                                  m_shared_surface_id: 0,
+                                  m_shared_gl_texture_id: 0,
+                                  m_shared_iosurface_id : 0,
                                   m_shared_surface: None};
 
         let vertex_shader = String::from("/Users/masonchang/Projects/Rust-TextureSharing/shaders/vertex.glsl");
@@ -179,14 +181,15 @@ impl Device {
     pub fn bind_iosurface(&mut self, width: i32, height: i32) {
         // Create our texture
         let texture_ids = gl::gen_textures(1);
-        self.m_shared_surface_id = texture_ids[0];
+        self.m_shared_gl_texture_id = texture_ids[0];
 
         // According to apple docs, ioshared surfaces only work for GL_TEXTURE_RECTANGLE
         // Which means fragment shader data has to be based on texels and not [-1..1].
-        gl::bind_texture(gl::TEXTURE_RECTANGLE, self.m_shared_surface_id);
+        gl::bind_texture(gl::TEXTURE_RECTANGLE, self.m_shared_gl_texture_id);
         match self.m_shared_surface {
             Some(ref surface) => {
                 surface.bind_to_gl_texture(width, height);
+                self.m_shared_iosurface_id = surface.get_id();
             },
             None => { panic!("No surface created") },
         }
@@ -206,9 +209,8 @@ impl Device {
         let width = 1024;
         let height = 1024;
 
-        println!("Child looking up surface\n");
-        self.m_shared_surface_id = iosurface_id as u32;
-        self.m_shared_surface = Some(io_surface::lookup(self.m_shared_surface_id));
+        self.m_shared_iosurface_id = iosurface_id as u32;
+        self.m_shared_surface = Some(io_surface::lookup(self.m_shared_iosurface_id));
         println!("Child got surface: {:?}", self.m_shared_surface);
         self.bind_iosurface(width, height);
     }
@@ -226,7 +228,7 @@ impl Device {
         gl::framebuffer_texture_2d(gl::FRAMEBUFFER,
                                    gl::COLOR_ATTACHMENT0,
                                    gl::TEXTURE_RECTANGLE,
-                                   self.m_shared_surface_id,
+                                   self.m_shared_gl_texture_id,
                                    0);
 
         // Check that its ok
