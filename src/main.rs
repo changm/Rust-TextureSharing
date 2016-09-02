@@ -41,7 +41,16 @@ fn get_image_data() -> Vec<u8> {
     return img.raw_pixels();
 }
 
-fn upload_texture_rectangle(width: u32, height: u32, data: &[u8], device : &Device) -> u32 {
+fn upload_texture_rectangle(device : &Device) -> u32 {
+    // let's upload the image
+    let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
+    let mut img = image::open(&Path::new(image_path)).unwrap();
+
+    let rgba_image = img.as_mut_rgba8().unwrap();
+    let width = rgba_image.width();
+    let height = rgba_image.height();
+    let data = rgba_image.to_vec();
+
     // Buffers for our textures
     device.begin_frame();
     let texture_buffers = gl::gen_textures(1);
@@ -65,7 +74,7 @@ fn upload_texture_rectangle(width: u32, height: u32, data: &[u8], device : &Devi
                      0,
                      gl::RGBA,
                      gl::UNSIGNED_BYTE,
-                     Some(data));
+                     Some(data.as_slice()));
 
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
     gl::flush();
@@ -88,25 +97,33 @@ fn create_glutin_window() -> glutin::Window {
     return window;
 }
 
-fn draw_image_to_screen(window : &glutin::Window, device : &mut Device) {
-    // let's upload the image
-    let image_path = "/Users/masonchang/Projects/Rust-TextureSharing/assets/firefox-256.png";
-    let mut img = image::open(&Path::new(image_path)).unwrap();
-
-    let rgba_image = img.as_mut_rgba8().unwrap();
-    let width = rgba_image.width();
-    let height = rgba_image.height();
-    let data = rgba_image.to_vec();
-    //println!("Data is: {:?}", data);
-
+fn setup_parent(window : &glutin::Window, device : &mut Device) {
     // Get the viewport size
     let viewport_size = gl::get_integer_v(gl::MAX_VIEWPORT_DIMS);
 
     device.setup_vao();
+    device.setup_iosurface();
     device.setup_fbo_iosurface();
 
     // Have to do this after we create the window which loads all the symbols.
-    let texture_id = upload_texture_rectangle(width, height, data.as_slice(), &device);
+    let texture_id = upload_texture_rectangle(&device);
+    device.setup_shared_texture_vertices();
+    gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_gl_texture_id);
+
+    gl::clear(gl::COLOR_BUFFER_BIT);
+    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+}
+
+
+fn draw_image_to_screen(window : &glutin::Window, device : &mut Device) {
+    // Get the viewport size
+    let viewport_size = gl::get_integer_v(gl::MAX_VIEWPORT_DIMS);
+
+    device.setup_vao();
+    device.setup_iosurface();
+    device.setup_fbo_iosurface();
+
+    // Have to do this after we create the window which loads all the symbols.
     device.setup_shared_texture_vertices();
     gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_gl_texture_id);
 
@@ -128,12 +145,20 @@ fn draw_image_to_screen(window : &glutin::Window, device : &mut Device) {
 }
 
 fn child_render(shared_surface_id : u8) {
-    println!("Starting child window\n");
     let window = create_glutin_window();
-    println!("Created child window\n");
     let mut child_device = Device::new();
-    println!("Created child device\n");
+    child_device.setup_vao();
     child_device.connect_iosurface(shared_surface_id);
+    child_device.setup_fbo_iosurface();
+
+    let image_texture = upload_texture_rectangle(&child_device);
+    child_device.setup_shared_texture_vertices();
+    gl::bind_texture(gl::TEXTURE_RECTANGLE, child_device.m_shared_gl_texture_id);
+
+    gl::clear(gl::COLOR_BUFFER_BIT);
+    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+    gl::flush();
+
 }
 
 fn create_processes() {
@@ -166,21 +191,12 @@ fn create_processes() {
                         println!("Child received quite message");
                         unsafe { libc::exit(0); }
                     },
-                        Message::PARENT_RENDER => println!("Child:: received parent render"),
-                        Message::CHILD_RENDER => println!("Child needs to render"),
+                    Message::PARENT_RENDER => println!("Parent:: received parent render"),
+                    Message::CHILD_RENDER => println!("Parent needs to render"),
                 }
 
-                for event in window.poll_events() {
-                    gl::clear(gl::COLOR_BUFFER_BIT);
-                    gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
-
-                    window.swap_buffers();
-
-                    match event {
-                        glutin::Event::Closed => break,
-                        _ => (),
-                    }
-                }
+                println!("Parent rendering to screen\n");
+                draw_image_to_screen(&window, &mut device);
             }
         }
         ForkResult::Child => {
@@ -207,6 +223,9 @@ fn create_processes() {
                         let shared_surface_id = received_data[1];
                         println!("Child surface: {:?}", shared_surface_id);
                         child_render(shared_surface_id);
+
+                        let data : &[u8] = &[Message::PARENT_RENDER as u8];
+                        super_tx.send(data, vec![], vec![]);
                     },
                 }
             } // end loop

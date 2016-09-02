@@ -202,7 +202,6 @@ impl Device {
         gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_BORDER as gl::GLint);
         gl::tex_parameter_i(gl::TEXTURE_RECTANGLE, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as gl::GLint);
         gl::bind_texture(gl::TEXTURE_RECTANGLE, 0);
-
     }
 
     pub fn connect_iosurface(&mut self, iosurface_id : u8) {
@@ -216,8 +215,6 @@ impl Device {
     }
 
     pub fn setup_fbo_iosurface(&mut self) {
-        self.setup_iosurface();
-
         // Now use this ios urface for an FBO
         // generate our FBO
         let fbos = gl::gen_framebuffers(1);
