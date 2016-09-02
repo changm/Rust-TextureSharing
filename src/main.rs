@@ -97,10 +97,11 @@ fn create_glutin_window() -> glutin::Window {
     return window;
 }
 
-fn setup_parent(window : &glutin::Window, device : &mut Device) {
-    // Get the viewport size
-    let viewport_size = gl::get_integer_v(gl::MAX_VIEWPORT_DIMS);
+fn redraw_parent(window: &glutin::Window, device : &mut Device) {
 
+}
+
+fn setup_parent(window : &glutin::Window, device : &mut Device) {
     device.setup_vao();
     device.setup_iosurface();
     device.setup_fbo_iosurface();
@@ -109,9 +110,23 @@ fn setup_parent(window : &glutin::Window, device : &mut Device) {
     let texture_id = upload_texture_rectangle(&device);
     device.setup_shared_texture_vertices();
     gl::bind_texture(gl::TEXTURE_RECTANGLE, device.m_shared_gl_texture_id);
+    //gl::bind_texture(gl::TEXTURE_RECTANGLE, texture_id);
 
     gl::clear(gl::COLOR_BUFFER_BIT);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+
+    for event in window.wait_events() {
+        gl::clear(gl::COLOR_BUFFER_BIT);
+        gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
+
+        window.swap_buffers();
+
+        match event {
+            glutin::Event::Closed => break,
+            glutin::Event::Awakened => break,
+            _ => ()
+        }
+    }
 }
 
 
@@ -158,7 +173,6 @@ fn child_render(shared_surface_id : u8) {
     gl::clear(gl::COLOR_BUFFER_BIT);
     gl::draw_elements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0);
     gl::flush();
-
 }
 
 fn create_processes() {
@@ -167,7 +181,7 @@ fn create_processes() {
         ForkResult::Parent{child} => {
             let window = create_glutin_window();
             let mut device = Device::new();
-            draw_image_to_screen(&window, &mut device);
+            setup_parent(&window, &mut device);
             let iosurface_id = device.m_shared_iosurface_id;
             println!("Shared surface id parent: {:?}", iosurface_id);
 
@@ -196,7 +210,7 @@ fn create_processes() {
                 }
 
                 println!("Parent rendering to screen\n");
-                draw_image_to_screen(&window, &mut device);
+                //draw_image_to_screen(&window, &mut device);
             }
         }
         ForkResult::Child => {
